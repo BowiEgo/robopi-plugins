@@ -1,12 +1,12 @@
 /// <reference path="../plugin-env.d.ts" />
 
 /**
- * tsx-workspace —— TSX 插件开发示例。
+ * workspace —— TSX 插件（宿主构建示例，发布至 robopi-workspace 仓库）。
  *
  * 开发方式：
- *   cd plugins-dev/tsx-workspace
+ *   cd plugins-dev/workspace
  *   npm install && npm run dev        # esbuild watch：改 src → 自动编译 dist
- *   ln -s "$PWD" ~/.pi/agent/robopi/plugins/tsx-workspace
+ *   ln -s "$PWD" ~/.pi/agent/robopi/plugins/workspace
  *
  * 热更链条：改 src/index.tsx → esbuild 编译 → dist/index.js mtime 变化
  *           → 浏览器 5 秒内重载插件
@@ -22,7 +22,7 @@ const { useEffect, useState } = window.React as typeof import("react");
 const robopi = window.robopi;
 
 if (!robopi) {
-  throw new Error("[tsx-workspace] 宿主未注入 robopi API");
+  throw new Error("[workspace] 宿主未注入 robopi API");
 }
 
 // ============ 位置级：sidebar-bottom 统计面板（JSX 写法） ============
@@ -63,7 +63,7 @@ function StatsPanel({ api }: { api: PluginApi }) {
       }}
     >
       <div style={{ fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>
-        ⚡ TSX 插件（tsx-workspace）
+        ⚡ workspace 插件（TSX）
       </div>
       <div>会话数：{stats ? stats.sessions : "…"}</div>
       <div>探针调用：{stats ? stats.greetingCalls : "…"}</div>
@@ -112,4 +112,4 @@ robopi.registerSlot("sidebar-bottom", (api) => <StatsPanel api={api} />);
 
 robopi.registerMessageRenderer("session-summary", (message) => <SummaryCard message={message} />);
 
-console.log("[tsx-workspace] loaded ✅ (TSX)");
+console.log("[workspace] loaded ✅ (TSX)");
