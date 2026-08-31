@@ -63,7 +63,7 @@ function StatsPanel({ api }: { api: PluginApi }) {
       }}
     >
       <div style={{ fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>
-        ⚡ workspace 插件（TSX）
+        ⚡ workspace v0.3.0（npm watch）
       </div>
       <div>会话数：{stats ? stats.sessions : "…"}</div>
       <div>探针调用：{stats ? stats.greetingCalls : "…"}</div>
