@@ -1,6 +1,6 @@
 "use strict";
 (() => {
-  // src/index.tsx
+  // plugins-dev/tsx-workspace/src/index.tsx
   var { useEffect, useState } = window.React;
   var robopi = window.robopi;
   if (!robopi) {
@@ -39,7 +39,7 @@
       /* @__PURE__ */ window.React.createElement("div", { style: { fontWeight: 700, color: "var(--text)", marginBottom: 6 } }, "\u26A1 TSX \u63D2\u4EF6\uFF08tsx-workspace\uFF09"),
       /* @__PURE__ */ window.React.createElement("div", null, "\u4F1A\u8BDD\u6570\uFF1A", stats ? stats.sessions : "\u2026"),
       /* @__PURE__ */ window.React.createElement("div", null, "\u63A2\u9488\u8C03\u7528\uFF1A", stats ? stats.greetingCalls : "\u2026"),
-      /* @__PURE__ */ window.React.createElement("div", { style: { marginTop: 6, color: "var(--text-dim)", fontSize: 11 } }, "\u70ED\u66F4\u65B0\u6210\u529F\uFF1ATSX v0.1.2")
+      /* @__PURE__ */ window.React.createElement("div", { style: { marginTop: 6, color: "var(--text-dim)", fontSize: 11 } }, "\u5BBF\u4E3B\u6784\u5EFA\uFF1ATSX v0.2.0")
     );
   }
   function SummaryCard({ message }) {

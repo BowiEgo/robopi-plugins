@@ -1,1 +1,1 @@
-node_modules/
+# 宿主构建（scripts/plugin-build.mjs），无需本地 node_modules

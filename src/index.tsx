@@ -68,7 +68,7 @@ function StatsPanel({ api }: { api: PluginApi }) {
       <div>会话数：{stats ? stats.sessions : "…"}</div>
       <div>探针调用：{stats ? stats.greetingCalls : "…"}</div>
       <div style={{ marginTop: 6, color: "var(--text-dim)", fontSize: 11 }}>
-        热更新成功：TSX v0.1.2
+        宿主构建：TSX v0.2.0
       </div>
     </div>
   );
