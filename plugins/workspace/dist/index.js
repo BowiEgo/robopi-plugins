@@ -36,7 +36,7 @@
           color: "var(--text-muted)"
         }
       },
-      /* @__PURE__ */ window.React.createElement("div", { style: { fontWeight: 700, color: "var(--text)", marginBottom: 6 } }, "\u26A1 workspace v0.3.0\uFF08npm watch\uFF09"),
+      /* @__PURE__ */ window.React.createElement("div", { style: { fontWeight: 700, color: "var(--text)", marginBottom: 6 } }, "\u26A1 workspace v0.4.0\uFF08npm run dev \u5185\u5EFA watch\uFF09"),
       /* @__PURE__ */ window.React.createElement("div", null, "\u4F1A\u8BDD\u6570\uFF1A", stats ? stats.sessions : "\u2026"),
       /* @__PURE__ */ window.React.createElement("div", null, "\u63A2\u9488\u8C03\u7528\uFF1A", stats ? stats.greetingCalls : "\u2026")
     );
