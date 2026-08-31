@@ -1,0 +1,13 @@
+{
+  "name": "tsx-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.tsx --bundle --format=iife --outfile=dist/index.js",
+    "dev": "esbuild src/index.tsx --bundle --format=iife --outfile=dist/index.js --watch=forever"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
