@@ -530,7 +530,7 @@
           gap: 12
         }
       },
-      items.map((item) => /* @__PURE__ */ window.React.createElement(
+      items.filter((i) => i.id !== "control-room").map((item) => /* @__PURE__ */ window.React.createElement(
         "button",
         {
           key: item.id,
@@ -692,8 +692,12 @@
     })));
   }
   function onBreadcrumbClick(worktableId, index) {
+    if (index === 0) {
+      setSelectedWorktableId("control-room");
+      return;
+    }
     setSelectedWorktableId(worktableId);
-    navListeners.forEach((cb) => cb(worktableId, index === 0 ? -1 : index - 1));
+    navListeners.forEach((cb) => cb(worktableId, index === 1 ? -1 : index - 2));
   }
   function WorktableDockPanel() {
     const [items, setItems] = useState2(BUILTIN_ITEMS);
@@ -720,7 +724,7 @@
       return () => clearInterval(timer);
     }, [selected]);
     const item = items.find((i) => i.id === selected) ?? items[0];
-    const breadcrumb = item ? [item.label, ...getPath(selected)] : ["\u5DE5\u4F5C\u53F0"];
+    const breadcrumb = item ? item.id === "control-room" ? ["\u63A7\u5236\u5BA4"] : ["\u63A7\u5236\u5BA4", item.label, ...getPath(selected)] : ["\u63A7\u5236\u5BA4"];
     return /* @__PURE__ */ window.React.createElement(
       DockPanel,
       {

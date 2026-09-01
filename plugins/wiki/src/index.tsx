@@ -40,7 +40,7 @@ const iconProps = {
 /** Book / wiki icon. */
 function WikiIcon() {
   return (
-    <svg {...iconProps}>
+    <svg style={{display: "inline-block"}} {...iconProps}>
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </svg>
@@ -86,69 +86,50 @@ function syncBreadcrumb(page: WikiPage): void {
   api?.setPath("wiki", page === "dashboard" ? [] : [label]);
 }
 
-/** Knowledge asset composition pie. */
+// Flat industrial palette (low saturation, cool tones)
+const INDUSTRIAL = ["#3b82f6", "#64748b", "#0ea5e9", "#475569", "#94a3b8"];
+
+/** Knowledge asset composition pie (flat industrial). */
 function AssetPieChart() {
   const option = {
     tooltip: { trigger: "item", ...TOOLTIP },
     series: [{
       type: "pie" as const,
-      radius: ["46%", "72%"],
-      center: ["50%", "52%"],
-      itemStyle: { borderRadius: 4, borderColor: CHART_COLORS.bg, borderWidth: 2 },
-      label: { color: CHART_COLORS.textMuted, fontSize: 10 },
+      radius: ["48%", "68%"],
+      center: ["50%", "50%"],
+      itemStyle: { borderWidth: 0 },
+      label: { color: CHART_COLORS.textMuted, fontSize: 10, formatter: "{b} {d}%" },
+      labelLine: { lineStyle: { color: CHART_COLORS.border } },
       data: [
-        { name: "财务制度", value: 3, itemStyle: { color: CHART_COLORS.accent } },
-        { name: "人力资源", value: 1, itemStyle: { color: CHART_COLORS.green } },
-        { name: "研发", value: 1, itemStyle: { color: CHART_COLORS.amber } },
-        { name: "通用", value: 1, itemStyle: { color: CHART_COLORS.violet } },
+        { name: "财务制度", value: 3, itemStyle: { color: INDUSTRIAL[0] } },
+        { name: "人力资源", value: 1, itemStyle: { color: INDUSTRIAL[1] } },
+        { name: "研发", value: 1, itemStyle: { color: INDUSTRIAL[2] } },
+        { name: "通用", value: 1, itemStyle: { color: INDUSTRIAL[3] } },
       ],
     }],
   };
   return <EChart option={option} height={170} />;
 }
 
-/** Q&A quality radar (accuracy/relevance/completeness/timeliness). */
-function QaQualityRadar() {
+/** Q&A quality as flat percentage bars. */
+function QaQualityBars() {
   const metrics = [
     { name: "准确率", value: 92 },
     { name: "相关性", value: 86 },
     { name: "完整性", value: 78 },
     { name: "实效性", value: 95 },
   ];
-  const option = {
-    tooltip: { ...TOOLTIP },
-    radar: {
-      indicator: metrics.map((m) => ({ name: m.name, max: 100 })),
-      radius: "62%",
-      axisName: { color: CHART_COLORS.textMuted, fontSize: 10 },
-      splitLine: { lineStyle: { color: CHART_COLORS.border } },
-      splitArea: { areaStyle: { color: ["transparent", CHART_COLORS.bg] } },
-      axisLine: { lineStyle: { color: CHART_COLORS.border } },
-    },
-    series: [{
-      type: "radar" as const,
-      data: [{
-        value: metrics.map((m) => m.value),
-        name: "问答质量",
-        areaStyle: { color: "color-mix(in srgb, var(--accent) 30%, transparent)" },
-        lineStyle: { color: CHART_COLORS.accent },
-        itemStyle: { color: CHART_COLORS.accent },
-      }],
-    }],
-  };
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <EChart option={option} height={170} />
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-        {metrics.map((m) => (
-          <div key={m.name} style={{ fontSize: 11 }}>
-            <div style={{ color: "var(--text-muted)" }}>{m.name}</div>
-            <div style={{ fontWeight: 700, color: "var(--text)" }}>{m.value}<span style={{ fontWeight: 400, color: "var(--text-dim)" }}>%</span></div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 4 }}>
+      {metrics.map((m) => (
+        <div key={m.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ width: 52, flexShrink: 0, fontSize: 11, color: "var(--text-muted)" }}>{m.name}</span>
+          <div style={{ flex: 1, height: 8, borderRadius: 2, background: "var(--tool-bg)", border: `1px solid ${CHART_COLORS.border}`, overflow: "hidden" }}>
+            <div style={{ width: `${m.value}%`, height: "100%", background: INDUSTRIAL[0] }} />
           </div>
-        ))}
-      </div>
+          <span style={{ width: 40, flexShrink: 0, textAlign: "right", fontSize: 11, fontWeight: 600, color: "var(--text)", fontFamily: "var(--font-mono)" }}>{m.value}%</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -164,14 +145,14 @@ function ServicesStatus() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {services.map((svc) => (
-        <div key={svc.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12 }}>
-          <span>{svc.icon}</span>
-          <span style={{ flex: 1, color: "var(--text)", fontWeight: 500 }}>{svc.name}</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--text-muted)", fontSize: 10.5 }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: CHART_COLORS.green, display: "inline-block" }} />
+        <div key={svc.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12 }}>
+          <span style={{ width: 18, textAlign: "center" }}>{svc.icon}</span>
+          <span style={{ flex: 1, minWidth: 0, color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{svc.name}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-muted)", fontSize: 10.5, width: 72, flexShrink: 0 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: CHART_COLORS.green, display: "inline-block", flexShrink: 0 }} />
             {svc.status}
           </span>
-          <span style={{ color: "var(--text-dim)", fontSize: 10.5, fontFamily: "var(--font-mono)" }}>{svc.latency}</span>
+          <span style={{ color: "var(--text-dim)", fontSize: 10.5, fontFamily: "var(--font-mono)", width: 52, textAlign: "right", flexShrink: 0 }}>{svc.latency}</span>
         </div>
       ))}
       <div style={{ fontSize: 10.5, color: "var(--text-dim)" }}>最近检查：刚刚 · 自动刷新</div>
@@ -179,26 +160,42 @@ function ServicesStatus() {
   );
 }
 
-/** Knowledge building pipeline (flow). */
+/** Knowledge building pipeline: numbered circular nodes + connector line. */
 function PipelineFlow() {
   const steps = [
-    { label: "采集", desc: "文档/网页" },
-    { label: "清洗", desc: "去重/格式化" },
+    { label: "采集", desc: "文档 / 网页" },
+    { label: "清洗", desc: "去重 / 格式化" },
     { label: "分块", desc: "语义切片" },
     { label: "向量化", desc: "Embedding" },
     { label: "索引", desc: "向量库" },
   ];
   return (
-    <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
+    <div style={{ display: "flex", alignItems: "flex-start", padding: "6px 0 2px" }}>
       {steps.map((step, i) => (
-        <div key={step.label} style={{ flex: 1, display: "flex", alignItems: "center", gap: 0 }}>
-          <div style={{ flex: 1, textAlign: "center", padding: "8px 6px", borderRadius: 8, border: `1px solid ${CHART_COLORS.border}`, background: "var(--bg)" }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{step.label}</div>
-            <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>{step.desc}</div>
+        <div key={step.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 0 }}>
+          {/* Connector to the previous node */}
+          <div style={{ display: "flex", alignItems: "center", width: "100%", marginBottom: 8 }}>
+            <div style={{ flex: 1, height: 1, background: i === 0 ? "transparent" : CHART_COLORS.border }} />
+            {i > 0 && (
+              <svg width="8" height="8" viewBox="0 0 8 8" style={{ marginLeft: -8, flexShrink: 0 }}>
+                <path d="M0 1 L7 4 L0 7 Z" fill={CHART_COLORS.textDim} />
+              </svg>
+            )}
+            {i < steps.length - 1 && <div style={{ flex: 1, height: 1, background: CHART_COLORS.border }} />}
           </div>
-          {i < steps.length - 1 && (
-            <span style={{ color: "var(--text-dim)", padding: "0 4px", fontSize: 12, flexShrink: 0 }}>→</span>
-          )}
+          {/* Node */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <div style={{
+              width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+              background: "color-mix(in srgb, var(--accent) 8%, var(--bg))",
+              border: `1px solid ${INDUSTRIAL[0]}`,
+              fontSize: 11, fontWeight: 600, color: INDUSTRIAL[0],
+            }}>
+              {i + 1}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap" }}>{step.label}</div>
+            <div style={{ fontSize: 10, color: "var(--text-dim)", whiteSpace: "nowrap" }}>{step.desc}</div>
+          </div>
         </div>
       ))}
     </div>
@@ -217,12 +214,12 @@ function RecentDocs() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {docs.map((doc) => (
-        <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12 }}>
-          <span style={{ color: "var(--text-muted)" }}><FileIcon /></span>
-          <span style={{ flex: 1, color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</span>
-          <span style={{ fontSize: 10, color: "var(--text-dim)" }}>{doc.space}</span>
-          <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 4, color: "#fff", background: statusColor(doc.status), flexShrink: 0 }}>{doc.status}</span>
-          <span style={{ fontSize: 10, color: "var(--text-dim)", flexShrink: 0 }}>{doc.updated}</span>
+        <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12 }}>
+          <span style={{ width: 18, textAlign: "center", color: "var(--text-muted)" }}><FileIcon /></span>
+          <span style={{ flex: 1, minWidth: 0, color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</span>
+          <span style={{ fontSize: 10, color: "var(--text-dim)", width: 56, flexShrink: 0, textAlign: "right" }}>{doc.space}</span>
+          <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 3, color: "#fff", background: statusColor(doc.status), flexShrink: 0, textAlign: "center" }}>{doc.status}</span>
+          <span style={{ fontSize: 10, color: "var(--text-dim)", width: 64, flexShrink: 0, textAlign: "right" }}>{doc.updated}</span>
         </div>
       ))}
     </div>
@@ -256,9 +253,9 @@ function GraphPreview() {
       roam: true,
       draggable: true,
       label: { show: true, fontSize: 9, color: CHART_COLORS.textMuted, position: "bottom" as const },
-      lineStyle: { color: CHART_COLORS.border, width: 1.2, curveness: 0.1 },
-      emphasis: { focus: "adjacency" as const, lineStyle: { width: 2, color: CHART_COLORS.accent } },
-      force: { repulsion: 120, edgeLength: 70 },
+      lineStyle: { color: CHART_COLORS.border, width: 1, curveness: 0.1 },
+      emphasis: { focus: "adjacency" as const, lineStyle: { width: 1.5, color: INDUSTRIAL[0] } },
+      force: { repulsion: 100, edgeLength: 65 },
       data: nodes,
       links,
     }],
@@ -283,24 +280,13 @@ function SectionCard({ title, children, extra }: { title: string; children: Reac
 function DashboardPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
-      {/* Header */}
-      <div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>
-          <span style={{ verticalAlign: -2, marginRight: 6, color: "var(--accent)" }}><WikiIcon /></span>
-          知识库主页
-        </div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-          知识资产 · 问答质量 · 服务状态 · 构建流水线 · 知识图谱（mock 数据）
-        </div>
-      </div>
-
       {/* Row 1: asset pie + QA quality */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
         <SectionCard title="知识资产构成">
           <AssetPieChart />
         </SectionCard>
         <SectionCard title="问答质量评估">
-          <QaQualityRadar />
+          <QaQualityBars />
         </SectionCard>
       </div>
 
