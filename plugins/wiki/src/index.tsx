@@ -13,6 +13,7 @@
 
 import type { PluginApi, WorktableItem } from "../plugin-env";
 import type * as React from "react";
+import { CHART_COLORS, EChart, TOOLTIP } from "./charts";
 
 const { useEffect, useState } = window.React as typeof import("react");
 
@@ -85,108 +86,203 @@ function syncBreadcrumb(page: WikiPage): void {
   api?.setPath("wiki", page === "dashboard" ? [] : [label]);
 }
 
-// ---------------------------------------------------------------------------
-// Dashboard page: stats + self-drawn SVG charts (no third-party deps)
-// ---------------------------------------------------------------------------
-
-interface DayStat { day: string; count: number }
-interface SpaceStat { name: string; count: number; color: string }
-
-const WEEK_UPDATES: DayStat[] = [
-  { day: "一", count: 2 }, { day: "二", count: 5 }, { day: "三", count: 3 },
-  { day: "四", count: 8 }, { day: "五", count: 6 }, { day: "六", count: 4 }, { day: "日", count: 3 },
-];
-const SPACE_DIST: SpaceStat[] = [
-  { name: "财务制度", count: 3, color: "var(--accent)" },
-  { name: "人力资源", count: 1, color: "#22c55e" },
-  { name: "研发", count: 1, color: "#f59e0b" },
-  { name: "通用", count: 1, color: "#8b5cf6" },
-];
-
-/** Simple bar chart (SVG). */
-function BarChart({ data }: { data: DayStat[] }) {
-  const w = 300;
-  const h = 120;
-  const pad = 4;
-  const max = Math.max(...data.map((d) => d.count), 1);
-  const bw = (w - pad * (data.length + 1)) / data.length;
-  return (
-    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
-      {data.map((d, i) => {
-        const bh = (d.count / max) * (h - 26);
-        const x = pad + i * (bw + pad);
-        const y = h - 22 - bh;
-        return (
-          <g key={d.day}>
-            <rect x={x} y={y} width={bw} height={bh} rx={2}
-              fill="color-mix(in srgb, var(--accent) 72%, var(--border))"
-            />
-            <text x={x + bw / 2} y={h - 8} textAnchor="middle" fontSize={9} fill="var(--text-dim)">
-              {d.day}
-            </text>
-            <text x={x + bw / 2} y={y - 3} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
-              {d.count}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
-  );
+/** Knowledge asset composition pie. */
+function AssetPieChart() {
+  const option = {
+    tooltip: { trigger: "item", ...TOOLTIP },
+    series: [{
+      type: "pie" as const,
+      radius: ["46%", "72%"],
+      center: ["50%", "52%"],
+      itemStyle: { borderRadius: 4, borderColor: CHART_COLORS.bg, borderWidth: 2 },
+      label: { color: CHART_COLORS.textMuted, fontSize: 10 },
+      data: [
+        { name: "财务制度", value: 3, itemStyle: { color: CHART_COLORS.accent } },
+        { name: "人力资源", value: 1, itemStyle: { color: CHART_COLORS.green } },
+        { name: "研发", value: 1, itemStyle: { color: CHART_COLORS.amber } },
+        { name: "通用", value: 1, itemStyle: { color: CHART_COLORS.violet } },
+      ],
+    }],
+  };
+  return <EChart option={option} height={170} />;
 }
 
-/** Donut chart (SVG stroke-dasharray). */
-function DonutChart({ data }: { data: SpaceStat[] }) {
-  const r = 44;
-  const c = 2 * Math.PI * r;
-  const total = data.reduce((sum, d) => sum + d.count, 0) || 1;
-  let offset = 0;
+/** Q&A quality radar (accuracy/relevance/completeness/timeliness). */
+function QaQualityRadar() {
+  const metrics = [
+    { name: "准确率", value: 92 },
+    { name: "相关性", value: 86 },
+    { name: "完整性", value: 78 },
+    { name: "实效性", value: 95 },
+  ];
+  const option = {
+    tooltip: { ...TOOLTIP },
+    radar: {
+      indicator: metrics.map((m) => ({ name: m.name, max: 100 })),
+      radius: "62%",
+      axisName: { color: CHART_COLORS.textMuted, fontSize: 10 },
+      splitLine: { lineStyle: { color: CHART_COLORS.border } },
+      splitArea: { areaStyle: { color: ["transparent", CHART_COLORS.bg] } },
+      axisLine: { lineStyle: { color: CHART_COLORS.border } },
+    },
+    series: [{
+      type: "radar" as const,
+      data: [{
+        value: metrics.map((m) => m.value),
+        name: "问答质量",
+        areaStyle: { color: "color-mix(in srgb, var(--accent) 30%, transparent)" },
+        lineStyle: { color: CHART_COLORS.accent },
+        itemStyle: { color: CHART_COLORS.accent },
+      }],
+    }],
+  };
   return (
-    <svg width={130} height={130} viewBox="0 0 130 130" style={{ display: "block" }}>
-      <circle cx={65} cy={65} r={r} fill="none" stroke="var(--border)" strokeWidth={16} />
-      {data.map((d) => {
-        const frac = d.count / total;
-        const el = (
-          <circle
-            key={d.name}
-            cx={65} cy={65} r={r} fill="none"
-            stroke={d.color} strokeWidth={16}
-            strokeDasharray={`${frac * c} ${c}`}
-            strokeDashoffset={-offset * c}
-            transform="rotate(-90 65 65)"
-            strokeLinecap="butt"
-          />
-        );
-        offset += frac;
-        return el;
-      })}
-      <text x={65} y={62} textAnchor="middle" fontSize={18} fontWeight={700} fill="var(--text)">
-        {total}
-      </text>
-      <text x={65} y={76} textAnchor="middle" fontSize={9} fill="var(--text-dim)">
-        空间
-      </text>
-    </svg>
-  );
-}
-
-/** Stat card. */
-function StatCard({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
-  return (
-    <div style={{
-      flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 10,
-      border: "1px solid var(--border)", background: "var(--bg)",
-    }}>
-      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", marginTop: 2 }}>{value}</div>
-      {hint && <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>{hint}</div>}
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <EChart option={option} height={170} />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+        {metrics.map((m) => (
+          <div key={m.name} style={{ fontSize: 11 }}>
+            <div style={{ color: "var(--text-muted)" }}>{m.name}</div>
+            <div style={{ fontWeight: 700, color: "var(--text)" }}>{m.value}<span style={{ fontWeight: 400, color: "var(--text-dim)" }}>%</span></div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-/** Dashboard: welcome header + stats + charts. */
+/** Services runtime status (real-time style). */
+function ServicesStatus() {
+  const services = [
+    { name: "RAG 问答 API", status: "运行中", latency: "82ms", icon: "🔌" },
+    { name: "向量检索服务", status: "运行中", latency: "45ms", icon: "🧭" },
+    { name: "WebHook 推送", status: "运行中", latency: "120ms", icon: "📡" },
+    { name: "文档导出", status: "运行中", latency: "—", icon: "📤" },
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {services.map((svc) => (
+        <div key={svc.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12 }}>
+          <span>{svc.icon}</span>
+          <span style={{ flex: 1, color: "var(--text)", fontWeight: 500 }}>{svc.name}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--text-muted)", fontSize: 10.5 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: CHART_COLORS.green, display: "inline-block" }} />
+            {svc.status}
+          </span>
+          <span style={{ color: "var(--text-dim)", fontSize: 10.5, fontFamily: "var(--font-mono)" }}>{svc.latency}</span>
+        </div>
+      ))}
+      <div style={{ fontSize: 10.5, color: "var(--text-dim)" }}>最近检查：刚刚 · 自动刷新</div>
+    </div>
+  );
+}
+
+/** Knowledge building pipeline (flow). */
+function PipelineFlow() {
+  const steps = [
+    { label: "采集", desc: "文档/网页" },
+    { label: "清洗", desc: "去重/格式化" },
+    { label: "分块", desc: "语义切片" },
+    { label: "向量化", desc: "Embedding" },
+    { label: "索引", desc: "向量库" },
+  ];
+  return (
+    <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
+      {steps.map((step, i) => (
+        <div key={step.label} style={{ flex: 1, display: "flex", alignItems: "center", gap: 0 }}>
+          <div style={{ flex: 1, textAlign: "center", padding: "8px 6px", borderRadius: 8, border: `1px solid ${CHART_COLORS.border}`, background: "var(--bg)" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{step.label}</div>
+            <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>{step.desc}</div>
+          </div>
+          {i < steps.length - 1 && (
+            <span style={{ color: "var(--text-dim)", padding: "0 4px", fontSize: 12, flexShrink: 0 }}>→</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Recent documents with processing status tags. */
+function RecentDocs() {
+  const docs = [
+    { id: "1", title: "报销流程指南", space: "财务制度", updated: "2 分钟前", status: "已索引" },
+    { id: "2", title: "新员工入职手册", space: "人力资源", updated: "1 小时前", status: "已索引" },
+    { id: "3", title: "产品架构总览", space: "研发", updated: "3 小时前", status: "处理中" },
+    { id: "4", title: "差旅标准与报销", space: "财务制度", updated: "昨天", status: "已索引" },
+  ];
+  const statusColor = (status: string) => status === "已索引" ? CHART_COLORS.green : CHART_COLORS.amber;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {docs.map((doc) => (
+        <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12 }}>
+          <span style={{ color: "var(--text-muted)" }}><FileIcon /></span>
+          <span style={{ flex: 1, color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</span>
+          <span style={{ fontSize: 10, color: "var(--text-dim)" }}>{doc.space}</span>
+          <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 4, color: "#fff", background: statusColor(doc.status), flexShrink: 0 }}>{doc.status}</span>
+          <span style={{ fontSize: 10, color: "var(--text-dim)", flexShrink: 0 }}>{doc.updated}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Knowledge graph preview (echarts graph). */
+function GraphPreview() {
+  const nodes = [
+    { name: "财务制度", category: 0, symbolSize: 34, itemStyle: { color: CHART_COLORS.accent } },
+    { name: "报销流程指南", category: 1, symbolSize: 22, itemStyle: { color: CHART_COLORS.cyan } },
+    { name: "差旅标准与报销", category: 1, symbolSize: 22, itemStyle: { color: CHART_COLORS.cyan } },
+    { name: "人力资源", category: 0, symbolSize: 30, itemStyle: { color: CHART_COLORS.green } },
+    { name: "新员工入职手册", category: 1, symbolSize: 22, itemStyle: { color: CHART_COLORS.cyan } },
+    { name: "研发", category: 0, symbolSize: 26, itemStyle: { color: CHART_COLORS.amber } },
+    { name: "产品架构总览", category: 1, symbolSize: 22, itemStyle: { color: CHART_COLORS.cyan } },
+  ];
+  const links = [
+    { source: "财务制度", target: "报销流程指南" },
+    { source: "财务制度", target: "差旅标准与报销" },
+    { source: "人力资源", target: "新员工入职手册" },
+    { source: "研发", target: "产品架构总览" },
+    { source: "报销流程指南", target: "差旅标准与报销" },
+  ];
+  const option = {
+    tooltip: { ...TOOLTIP },
+    animationDurationUpdate: 800,
+    series: [{
+      type: "graph" as const,
+      layout: "force" as const,
+      roam: true,
+      draggable: true,
+      label: { show: true, fontSize: 9, color: CHART_COLORS.textMuted, position: "bottom" as const },
+      lineStyle: { color: CHART_COLORS.border, width: 1.2, curveness: 0.1 },
+      emphasis: { focus: "adjacency" as const, lineStyle: { width: 2, color: CHART_COLORS.accent } },
+      force: { repulsion: 120, edgeLength: 70 },
+      data: nodes,
+      links,
+    }],
+  };
+  return <EChart option={option} height={210} />;
+}
+
+/** Section card wrapper. */
+function SectionCard({ title, children, extra }: { title: string; children: React.ReactNode; extra?: React.ReactNode }) {
+  return (
+    <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)" }}>{title}</span>
+        {extra}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Dashboard: knowledge overview (echarts-powered). */
 function DashboardPage() {
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
       {/* Header */}
       <div>
         <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>
@@ -194,53 +290,38 @@ function DashboardPage() {
           知识库主页
         </div>
         <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-          企业知识中枢 · 最近文档、更新趋势与空间分布（mock 数据）
+          知识资产 · 问答质量 · 服务状态 · 构建流水线 · 知识图谱（mock 数据）
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <StatCard label="文档总数" value={MOCK_DOCS.length} hint="5 篇示例" />
-        <StatCard label="知识空间" value={new Set(MOCK_DOCS.map((d) => d.space)).size} hint="财务 / 人力 / 研发" />
-        <StatCard label="本周更新" value={WEEK_UPDATES.reduce((s, d) => s + d.count, 0)} hint="+12% vs 上周" />
-        <StatCard label="标签数" value={new Set(MOCK_DOCS.flatMap((d) => d.tags)).size} hint="跨空间聚合" />
+      {/* Row 1: asset pie + QA quality */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+        <SectionCard title="知识资产构成">
+          <AssetPieChart />
+        </SectionCard>
+        <SectionCard title="问答质量评估">
+          <QaQualityRadar />
+        </SectionCard>
       </div>
 
-      {/* Charts */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 220, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>近 7 日更新趋势</div>
-          <BarChart data={WEEK_UPDATES} />
-        </div>
-        <div style={{ flex: 1, minWidth: 220, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>空间分布</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <DonutChart data={SPACE_DIST} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {SPACE_DIST.map((d) => (
-                <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: d.color, display: "inline-block" }} />
-                  <span style={{ color: "var(--text-muted)" }}>{d.name}</span>
-                  <span style={{ color: "var(--text-dim)" }}>{d.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      {/* Row 2: services + pipeline */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+        <SectionCard title="输出与服务 · 服务运行状态" extra={<span style={{ fontSize: 10, color: CHART_COLORS.green }}>● 实时</span>}>
+          <ServicesStatus />
+        </SectionCard>
+        <SectionCard title="知识构建流水线">
+          <PipelineFlow />
+        </SectionCard>
       </div>
 
-      {/* Recent documents */}
-      <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)" }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>最近文档</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {MOCK_DOCS.slice(0, 3).map((doc) => (
-            <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-              <span style={{ color: "var(--text-muted)", display: "flex" }}><FileIcon /></span>
-              <span style={{ color: "var(--text)", fontWeight: 500, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</span>
-              <span style={{ color: "var(--text-dim)", fontSize: 10.5 }}>{doc.space} · {doc.updated}</span>
-            </div>
-          ))}
-        </div>
+      {/* Row 3: recent docs + graph */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+        <SectionCard title="最近文档">
+          <RecentDocs />
+        </SectionCard>
+        <SectionCard title="知识图谱预览">
+          <GraphPreview />
+        </SectionCard>
       </div>
     </div>
   );
