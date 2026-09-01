@@ -38,6 +38,8 @@ export interface PluginApi {
   openSession(sessionId: string): void;
   /** 工作台项注册表（worktable 容器插件读取） */
   getWorktableItems(): WorktableItem[];
+  /** Open the dock panel (rendered below the file browser) */
+  openDock(): void;
 }
 
 /** 工作台项（worktable 插件渲染的列表项） */
@@ -62,6 +64,7 @@ declare global {
       registerMessageRenderer(customType: string, renderer: MessageRenderer): void;
       registerWorktableItem(item: WorktableItem): void;
       registerDockPanel(renderer: SlotRenderer): void;
+      openDock(): void;
     };
     React?: typeof import("react");
   }

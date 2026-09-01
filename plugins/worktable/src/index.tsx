@@ -21,6 +21,33 @@ if (!robopi) {
   throw new Error("[worktable] 宿主未注入 robopi API");
 }
 
+// ---------------------------------------------------------------------------
+// 共享选中状态：sidebar 工作台列表与 dock 内容区需要联动
+// ---------------------------------------------------------------------------
+
+let selectedWorktableId = "overview";
+const selectedListeners = new Set<() => void>();
+
+function getSelectedWorktableId(): string {
+  return selectedWorktableId;
+}
+
+function setSelectedWorktableId(id: string): void {
+  selectedWorktableId = id;
+  selectedListeners.forEach((listener) => listener());
+}
+
+/** React hook: subscribe to the selected worktable id (plugin-local store). */
+function useSelectedWorktableId(): string {
+  const [, forceRender] = useState(0);
+  useEffect(() => {
+    const listener = () => forceRender((n) => n + 1);
+    selectedListeners.add(listener);
+    return () => { selectedListeners.delete(listener); };
+  }, []);
+  return getSelectedWorktableId();
+}
+
 // ============ 内置默认工作台项（占位，可被插件同名覆盖） ============
 
 /** 概览：会话统计（原 workspace 功能迁移） */
@@ -94,7 +121,7 @@ const BUILTIN_ITEMS: WorktableItem[] = [
 function WorktablePanel({ api }: { api: PluginApi }) {
   const [open, setOpen] = useState(true);
   const [items, setItems] = useState<WorktableItem[]>(BUILTIN_ITEMS);
-  const [selected, setSelected] = useState<string>("overview");
+  const selected = useSelectedWorktableId();
 
   // 轮询工作台注册表（与插件热更节奏一致，新插件注册 5s 内出现）
   useEffect(() => {
@@ -111,8 +138,6 @@ function WorktablePanel({ api }: { api: PluginApi }) {
     const timer = setInterval(refresh, 5000);
     return () => clearInterval(timer);
   }, [api]);
-
-  const selectedItem = items.find((i) => i.id === selected) ?? items[0];
 
   return (
     <div
@@ -156,7 +181,10 @@ function WorktablePanel({ api }: { api: PluginApi }) {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setSelected(item.id)}
+                onClick={() => {
+                  setSelectedWorktableId(item.id);
+                  api.openDock();
+                }}
                 style={{
                   display: "flex", alignItems: "center", gap: 6, width: "100%",
                   height: 24, padding: "0 8px", borderRadius: 4, cursor: "pointer",
@@ -175,21 +203,7 @@ function WorktablePanel({ api }: { api: PluginApi }) {
             );
           })}
 
-          {/* 选中工作台的内容 */}
-          {selectedItem && (
-            <div
-              style={{
-                marginTop: 2, padding: "8px 8px", borderTop: "1px solid var(--border)",
-                fontSize: 12,
-              }}
-            >
-              {selectedItem.component ? (
-                <selectedItem.component api={api} />
-              ) : (
-                <PlaceholderPanel item={selectedItem} />
-              )}
-            </div>
-          )}
+
         </div>
       )}
     </div>
@@ -198,6 +212,53 @@ function WorktablePanel({ api }: { api: PluginApi }) {
 
 // ============ 注册 ============
 
-robopi.registerDockPanel((api) => <WorktablePanel api={api} />);
+// Sidebar entry: collapsible worktable list (opens the dock on selection)
+robopi.registerSlot("sidebar-bottom", (api) => <WorktablePanel api={api} />);
+
+// Dock content: renders the selected worktable below the file browser
+robopi.registerDockPanel(() => <WorktableDockContent />);
+
+/**
+ * Dock 内容区：渲染当前选中的工作台（与 sidebar 列表共享选中状态）。
+ * 无 component 的工作台项（占位）显示 PlaceholderPanel。
+ */
+function WorktableDockContent() {
+  const [items, setItems] = useState<WorktableItem[]>(BUILTIN_ITEMS);
+  const selected = useSelectedWorktableId();
+
+  useEffect(() => {
+    const refresh = () => {
+      const registered = (window.robopi as unknown as { getWorktableItems?: () => WorktableItem[] })
+        .getWorktableItems?.() ?? [];
+      if (registered.length === 0) return;
+      const merged = new Map<string, WorktableItem>();
+      for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
+      for (const item of registered) merged.set(item.id, item);
+      setItems([...merged.values()]);
+    };
+    refresh();
+    const timer = setInterval(refresh, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const item = items.find((i) => i.id === selected) ?? items[0];
+  if (!item) return null;
+  if (item.component) {
+    const Component = item.component;
+    return <div style={{ padding: 12 }}><Component api={pluginApiShim} /></div>;
+  }
+  return <div style={{ padding: 12 }}><PlaceholderPanel item={item} /></div>;
+}
+
+// Dock 内容组件无法接收 api 参数，使用全局 shim（宿主注入的 pluginApi 等价物）
+const pluginApiShim: PluginApi = {
+  getStatus: () => fetch("/api/robopi/status", { cache: "no-store" }).then((r) => r.json()),
+  listSessions: () => fetch("/api/sessions", { cache: "no-store" }).then((r) => r.json()),
+  openSession: (sessionId: string) => {
+    window.location.assign(`/?session=${encodeURIComponent(sessionId)}`);
+  },
+  getWorktableItems: () => (window.robopi as unknown as { getWorktableItems?: () => WorktableItem[] }).getWorktableItems?.() ?? [],
+  openDock: () => (window.robopi as unknown as { openDock?: () => void }).openDock?.(),
+};
 
 console.log("[worktable] loaded ✅ (工作台容器)");

@@ -6,6 +6,26 @@
   if (!robopi) {
     throw new Error("[worktable] \u5BBF\u4E3B\u672A\u6CE8\u5165 robopi API");
   }
+  var selectedWorktableId = "overview";
+  var selectedListeners = /* @__PURE__ */ new Set();
+  function getSelectedWorktableId() {
+    return selectedWorktableId;
+  }
+  function setSelectedWorktableId(id) {
+    selectedWorktableId = id;
+    selectedListeners.forEach((listener) => listener());
+  }
+  function useSelectedWorktableId() {
+    const [, forceRender] = useState(0);
+    useEffect(() => {
+      const listener = () => forceRender((n) => n + 1);
+      selectedListeners.add(listener);
+      return () => {
+        selectedListeners.delete(listener);
+      };
+    }, []);
+    return getSelectedWorktableId();
+  }
   function OverviewPanel({ api }) {
     const [stats, setStats] = useState(null);
     useEffect(() => {
@@ -52,7 +72,7 @@
   function WorktablePanel({ api }) {
     const [open, setOpen] = useState(true);
     const [items, setItems] = useState(BUILTIN_ITEMS);
-    const [selected, setSelected] = useState("overview");
+    const selected = useSelectedWorktableId();
     useEffect(() => {
       const refresh = () => {
         const registered = api.getWorktableItems();
@@ -66,7 +86,6 @@
       const timer = setInterval(refresh, 5e3);
       return () => clearInterval(timer);
     }, [api]);
-    const selectedItem = items.find((i) => i.id === selected) ?? items[0];
     return /* @__PURE__ */ window.React.createElement(
       "div",
       {
@@ -123,7 +142,10 @@
           {
             key: item.id,
             type: "button",
-            onClick: () => setSelected(item.id),
+            onClick: () => {
+              setSelectedWorktableId(item.id);
+              api.openDock();
+            },
             style: {
               display: "flex",
               alignItems: "center",
@@ -150,20 +172,43 @@
           /* @__PURE__ */ window.React.createElement("span", { "aria-hidden": true }, item.icon ?? "\u2022"),
           /* @__PURE__ */ window.React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, item.label)
         );
-      }), selectedItem && /* @__PURE__ */ window.React.createElement(
-        "div",
-        {
-          style: {
-            marginTop: 2,
-            padding: "8px 8px",
-            borderTop: "1px solid var(--border)",
-            fontSize: 12
-          }
-        },
-        selectedItem.component ? /* @__PURE__ */ window.React.createElement(selectedItem.component, { api }) : /* @__PURE__ */ window.React.createElement(PlaceholderPanel, { item: selectedItem })
-      ))
+      }))
     );
   }
-  robopi.registerDockPanel((api) => /* @__PURE__ */ window.React.createElement(WorktablePanel, { api }));
+  robopi.registerSlot("sidebar-bottom", (api) => /* @__PURE__ */ window.React.createElement(WorktablePanel, { api }));
+  robopi.registerDockPanel(() => /* @__PURE__ */ window.React.createElement(WorktableDockContent, null));
+  function WorktableDockContent() {
+    const [items, setItems] = useState(BUILTIN_ITEMS);
+    const selected = useSelectedWorktableId();
+    useEffect(() => {
+      const refresh = () => {
+        const registered = window.robopi.getWorktableItems?.() ?? [];
+        if (registered.length === 0) return;
+        const merged = /* @__PURE__ */ new Map();
+        for (const item2 of BUILTIN_ITEMS) merged.set(item2.id, item2);
+        for (const item2 of registered) merged.set(item2.id, item2);
+        setItems([...merged.values()]);
+      };
+      refresh();
+      const timer = setInterval(refresh, 5e3);
+      return () => clearInterval(timer);
+    }, []);
+    const item = items.find((i) => i.id === selected) ?? items[0];
+    if (!item) return null;
+    if (item.component) {
+      const Component = item.component;
+      return /* @__PURE__ */ window.React.createElement("div", { style: { padding: 12 } }, /* @__PURE__ */ window.React.createElement(Component, { api: pluginApiShim }));
+    }
+    return /* @__PURE__ */ window.React.createElement("div", { style: { padding: 12 } }, /* @__PURE__ */ window.React.createElement(PlaceholderPanel, { item }));
+  }
+  var pluginApiShim = {
+    getStatus: () => fetch("/api/robopi/status", { cache: "no-store" }).then((r) => r.json()),
+    listSessions: () => fetch("/api/sessions", { cache: "no-store" }).then((r) => r.json()),
+    openSession: (sessionId) => {
+      window.location.assign(`/?session=${encodeURIComponent(sessionId)}`);
+    },
+    getWorktableItems: () => window.robopi.getWorktableItems?.() ?? [],
+    openDock: () => window.robopi.openDock?.()
+  };
   console.log("[worktable] loaded \u2705 (\u5DE5\u4F5C\u53F0\u5BB9\u5668)");
 })();
