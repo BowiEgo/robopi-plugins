@@ -4,6 +4,7 @@
   var { useEffect, useRef, useState } = window.React;
   var MIN_SIZE = 200;
   var MAX_SIZE = 640;
+  var DEFAULT_SIZE = 300;
   var WIDTH_KEY = "robopi-worktable-width";
   var HEIGHT_KEY = "robopi-worktable-height";
   function DropZone({ side, hint }) {
@@ -29,7 +30,7 @@
     const [height, setHeight] = useState(() => readStoredSize(HEIGHT_KEY, 280));
     const [dragHint, setDragHint] = useState(null);
     const [dragging, setDragging] = useState(false);
-    const [resizing, setResizing] = useState(false);
+    const [isResizing, setIsResizing] = useState(false);
     const [handleHover, setHandleHover] = useState(false);
     const panelRef = useRef(null);
     const widthRef = useRef(width);
@@ -80,32 +81,90 @@
       window.addEventListener("mousemove", move);
       window.addEventListener("mouseup", up);
     };
-    const startResize = (e) => {
+    const clampSize = (v) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, v));
+    const dragRef = useRef(null);
+    const finishResize = (pointerId) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== pointerId) return;
+      dragRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setIsResizing(false);
+    };
+    const onPointerDown = (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
       e.preventDefault();
-      setResizing(true);
-      const side2 = api.getDockSide();
-      const horizontal2 = side2 === "left" || side2 === "right";
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const startWidth = widthRef.current;
-      const startHeight = heightRef.current;
-      const clamp = (v) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, v));
-      const move = (ev) => {
-        if (horizontal2) {
-          const delta = side2 === "left" ? ev.clientX - startX : startX - ev.clientX;
-          setWidth(clamp(startWidth + delta));
-        } else {
-          const delta = side2 === "top" ? ev.clientY - startY : startY - ev.clientY;
-          setHeight(clamp(startHeight + delta));
+      e.stopPropagation();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      dragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        startWidth: widthRef.current,
+        startHeight: heightRef.current
+      };
+      document.body.style.cursor = horizontal ? "col-resize" : "row-resize";
+      document.body.style.userSelect = "none";
+      setIsResizing(true);
+    };
+    const onPointerMove = (e) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      if (e.pointerType === "mouse" && e.buttons === 0) {
+        finishResize(e.pointerId);
+        return;
+      }
+      e.preventDefault();
+      if (horizontal) {
+        const dir = side === "left" ? 1 : -1;
+        setWidth(clampSize(drag.startWidth + (e.clientX - drag.startX) * dir));
+      } else {
+        const dir = side === "top" ? 1 : -1;
+        setHeight(clampSize(drag.startHeight + (e.clientY - drag.startY) * dir));
+      }
+    };
+    const onPointerUp = (e) => finishResize(e.pointerId);
+    const onPointerCancel = (e) => finishResize(e.pointerId);
+    const onLostPointerCapture = (e) => finishResize(e.pointerId);
+    useEffect(() => {
+      if (!isResizing) return;
+      const cancel = () => {
+        const drag = dragRef.current;
+        if (drag) finishResize(drag.pointerId);
+      };
+      window.addEventListener("blur", cancel);
+      document.addEventListener("visibilitychange", cancel);
+      return () => {
+        window.removeEventListener("blur", cancel);
+        document.removeEventListener("visibilitychange", cancel);
+      };
+    }, [isResizing, finishResize]);
+    useEffect(() => {
+      return () => {
+        if (dragRef.current) {
+          dragRef.current = null;
+          document.body.style.cursor = "";
+          document.body.style.userSelect = "";
         }
       };
-      const up = () => {
-        window.removeEventListener("mousemove", move);
-        window.removeEventListener("mouseup", up);
-        setResizing(false);
-      };
-      window.addEventListener("mousemove", move);
-      window.addEventListener("mouseup", up);
+    }, []);
+    const onKeyDown = (e) => {
+      const step = e.shiftKey ? 32 : 12;
+      const growKey = horizontal ? side === "left" ? "ArrowRight" : "ArrowLeft" : side === "top" ? "ArrowDown" : "ArrowUp";
+      const shrinkKey = horizontal ? side === "left" ? "ArrowLeft" : "ArrowRight" : side === "top" ? "ArrowUp" : "ArrowDown";
+      if (e.key === growKey) {
+        e.preventDefault();
+        horizontal ? setWidth(clampSize(widthRef.current + step)) : setHeight(clampSize(heightRef.current + step));
+      } else if (e.key === shrinkKey) {
+        e.preventDefault();
+        horizontal ? setWidth(clampSize(widthRef.current - step)) : setHeight(clampSize(heightRef.current - step));
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        horizontal ? setWidth(MIN_SIZE) : setHeight(MIN_SIZE);
+      } else if (e.key === "End") {
+        e.preventDefault();
+        horizontal ? setWidth(MAX_SIZE) : setHeight(MAX_SIZE);
+      }
     };
     const side = api.getDockSide();
     const horizontal = side === "left" || side === "right";
@@ -122,7 +181,7 @@
       bottom: 0,
       left: side === "right" ? 0 : void 0,
       right: side === "left" ? 0 : void 0,
-      width: 5,
+      width: 12,
       cursor: "col-resize",
       zIndex: 20
     } : {
@@ -131,7 +190,7 @@
       right: 0,
       top: side === "bottom" ? 0 : void 0,
       bottom: side === "top" ? 0 : void 0,
-      height: 5,
+      height: 12,
       cursor: "row-resize",
       zIndex: 20
     };
@@ -141,8 +200,7 @@
       {
         ref: panelRef,
         style: {
-          width,
-          height,
+          ...horizontal ? { width, height: "100%" } : { width: "100%", height },
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
@@ -229,18 +287,43 @@
       /* @__PURE__ */ window.React.createElement(
         "div",
         {
-          onMouseDown: startResize,
+          onPointerDown,
+          onPointerMove,
+          onPointerUp,
+          onPointerCancel,
+          onLostPointerCapture,
+          onKeyDown,
+          onDoubleClick: () => {
+            horizontal ? setWidth(DEFAULT_SIZE) : setHeight(DEFAULT_SIZE);
+          },
           onMouseEnter: () => setHandleHover(true),
           onMouseLeave: () => setHandleHover(false),
           role: "separator",
           "aria-orientation": horizontal ? "vertical" : "horizontal",
-          title: "\u62D6\u62FD\u8C03\u6574\u5927\u5C0F",
+          "aria-valuemin": MIN_SIZE,
+          "aria-valuemax": MAX_SIZE,
+          "aria-valuenow": horizontal ? width : height,
+          tabIndex: 0,
+          title: "\u62D6\u62FD\u8C03\u6574\u5927\u5C0F\uFF08\u53CC\u51FB\u8FD8\u539F\uFF09",
           style: {
             ...handleStyle,
-            background: resizing ? "var(--accent)" : handleHover ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "transparent",
-            transition: "background 0.1s ease"
+            outline: "none",
+            touchAction: "none"
           }
-        }
+        },
+        /* @__PURE__ */ window.React.createElement(
+          "div",
+          {
+            style: {
+              position: "absolute",
+              ...horizontal ? { top: 0, bottom: 0, left: "50%", width: 2, transform: "translateX(-50%)" } : { left: 0, right: 0, top: "50%", height: 2, transform: "translateY(-50%)" },
+              background: isResizing ? "var(--accent)" : handleHover ? "color-mix(in srgb, var(--accent) 55%, var(--border))" : "var(--border)",
+              pointerEvents: "none",
+              transition: "background 0.12s ease",
+              borderRadius: 1
+            }
+          }
+        )
       )
     ), dragging && chatAreaRect && /* @__PURE__ */ window.React.createElement(
       "div",
@@ -268,6 +351,35 @@
   if (!robopi) {
     throw new Error("[worktable] \u5BBF\u4E3B\u672A\u6CE8\u5165 robopi API");
   }
+  var registry = /* @__PURE__ */ new Map();
+  var listeners = /* @__PURE__ */ new Set();
+  var PENDING_KEY = "__robopiWorktablePending";
+  function registerItem(item) {
+    registry.set(item.id, item);
+    listeners.forEach((listener) => listener());
+  }
+  function getItems() {
+    return [...registry.values()];
+  }
+  function publishRegistryApi() {
+    const api = {
+      registerItem,
+      getItems,
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      }
+    };
+    window.robopiWorktable = api;
+    const pending = window[PENDING_KEY];
+    if (pending) {
+      for (const item of pending) registerItem(item);
+      delete window[PENDING_KEY];
+    }
+  }
+  publishRegistryApi();
   var selectedWorktableId = "control-room";
   var selectedListeners = /* @__PURE__ */ new Set();
   function getSelectedWorktableId() {
@@ -308,7 +420,7 @@
     const [items, setItems] = useState2(BUILTIN_ITEMS);
     useEffect2(() => {
       const refresh = () => {
-        const registered = api.getWorktableItems();
+        const registered = getItems();
         if (registered.length === 0) return;
         const merged = /* @__PURE__ */ new Map();
         for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -421,7 +533,7 @@
     const selected = useSelectedWorktableId();
     useEffect2(() => {
       const refresh = () => {
-        const registered = api.getWorktableItems();
+        const registered = getItems();
         if (registered.length === 0) return;
         const merged = /* @__PURE__ */ new Map();
         for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -515,7 +627,7 @@
     const selected = useSelectedWorktableId();
     useEffect2(() => {
       const refresh = () => {
-        const registered = pluginApiShim.getWorktableItems();
+        const registered = getItems();
         if (registered.length === 0) return;
         const merged = /* @__PURE__ */ new Map();
         for (const item2 of BUILTIN_ITEMS) merged.set(item2.id, item2);
@@ -545,7 +657,6 @@
     openSession: (sessionId) => {
       window.location.assign(`/?session=${encodeURIComponent(sessionId)}`);
     },
-    getWorktableItems: () => window.robopi.getWorktableItems?.() ?? [],
     openDock: () => window.robopi.openDock?.(),
     setDockSide: (side) => window.robopi.setDockSide?.(side),
     getDockSide: () => window.robopi.getDockSide?.() ?? "left"

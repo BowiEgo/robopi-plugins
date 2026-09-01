@@ -18,6 +18,7 @@ const { useEffect, useRef, useState } = window.React as typeof import("react");
 
 const MIN_SIZE = 200;
 const MAX_SIZE = 640;
+const DEFAULT_SIZE = 300;
 const WIDTH_KEY = "robopi-worktable-width";
 const HEIGHT_KEY = "robopi-worktable-height";
 
@@ -62,7 +63,7 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
   const [height, setHeight] = useState(() => readStoredSize(HEIGHT_KEY, 280));
   const [dragHint, setDragHint] = useState<DockSide | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [resizing, setResizing] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const [handleHover, setHandleHover] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const widthRef = useRef(width);
@@ -123,38 +124,109 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
   };
 
   /**
-   * Edge handle drag adjusted to the docking side:
-   * left -> right edge (width), right -> left edge (width),
-   * top -> bottom edge (height), bottom -> top edge (height).
+   * Pointer-based resize (mirrors the host useResizablePanel approach):
+   * pointer capture on the separator, body cursor/userSelect management,
+   * keyboard support, cleanup on blur/visibility change.
    */
-  const startResize = (e: React.MouseEvent) => {
+  const clampSize = (v: number) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, v));
+  const dragRef = useRef<{
+    pointerId: number; startX: number; startY: number;
+    startWidth: number; startHeight: number;
+  } | null>(null);
+
+  const finishResize = (pointerId: number) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== pointerId) return;
+    dragRef.current = null;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    setIsResizing(false);
+    // width/height are persisted by the effects above
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
     e.preventDefault();
-    setResizing(true);
-    const side = api.getDockSide();
-    const horizontal = side === "left" || side === "right";
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startWidth = widthRef.current;
-    const startHeight = heightRef.current;
-    const clamp = (v: number) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, v));
-    const move = (ev: MouseEvent) => {
-      if (horizontal) {
-        // left: dragging right grows; right: dragging left grows
-        const delta = side === "left" ? ev.clientX - startX : startX - ev.clientX;
-        setWidth(clamp(startWidth + delta));
-      } else {
-        // top: dragging down grows; bottom: dragging up grows
-        const delta = side === "top" ? ev.clientY - startY : startY - ev.clientY;
-        setHeight(clamp(startHeight + delta));
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: widthRef.current,
+      startHeight: heightRef.current,
+    };
+    document.body.style.cursor = horizontal ? "col-resize" : "row-resize";
+    document.body.style.userSelect = "none";
+    setIsResizing(true);
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    if (e.pointerType === "mouse" && e.buttons === 0) {
+      finishResize(e.pointerId);
+      return;
+    }
+    e.preventDefault();
+    if (horizontal) {
+      // left: dragging right grows; right: dragging left grows
+      const dir = side === "left" ? 1 : -1;
+      setWidth(clampSize(drag.startWidth + (e.clientX - drag.startX) * dir));
+    } else {
+      // top: dragging down grows; bottom: dragging up grows
+      const dir = side === "top" ? 1 : -1;
+      setHeight(clampSize(drag.startHeight + (e.clientY - drag.startY) * dir));
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => finishResize(e.pointerId);
+  const onPointerCancel = (e: React.PointerEvent<HTMLDivElement>) => finishResize(e.pointerId);
+  const onLostPointerCapture = (e: React.PointerEvent<HTMLDivElement>) => finishResize(e.pointerId);
+
+  // Cancel on blur / tab hidden, like the host resizer
+  useEffect(() => {
+    if (!isResizing) return;
+    const cancel = () => {
+      const drag = dragRef.current;
+      if (drag) finishResize(drag.pointerId);
+    };
+    window.addEventListener("blur", cancel);
+    document.addEventListener("visibilitychange", cancel);
+    return () => {
+      window.removeEventListener("blur", cancel);
+      document.removeEventListener("visibilitychange", cancel);
+    };
+  }, [isResizing, finishResize]);
+
+  // Unmount cleanup
+  useEffect(() => {
+    return () => {
+      if (dragRef.current) {
+        dragRef.current = null;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
       }
     };
-    const up = () => {
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-      setResizing(false);
-    };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
+  }, []);
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 32 : 12;
+    const growKey = horizontal ? (side === "left" ? "ArrowRight" : "ArrowLeft") : (side === "top" ? "ArrowDown" : "ArrowUp");
+    const shrinkKey = horizontal ? (side === "left" ? "ArrowLeft" : "ArrowRight") : (side === "top" ? "ArrowUp" : "ArrowDown");
+    if (e.key === growKey) {
+      e.preventDefault();
+      horizontal ? setWidth(clampSize(widthRef.current + step)) : setHeight(clampSize(heightRef.current + step));
+    } else if (e.key === shrinkKey) {
+      e.preventDefault();
+      horizontal ? setWidth(clampSize(widthRef.current - step)) : setHeight(clampSize(heightRef.current - step));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      horizontal ? setWidth(MIN_SIZE) : setHeight(MIN_SIZE);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      horizontal ? setWidth(MAX_SIZE) : setHeight(MAX_SIZE);
+    }
   };
 
   const side = api.getDockSide();
@@ -171,19 +243,19 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
         borderTop: side === "bottom" ? "1px solid var(--border)" : "none",
       };
 
-  // Sidebar-style resize bar on the edge facing the chat area (5px, hover-highlighted)
+  // 12px hot zone on the edge facing the chat area (host sidebar style)
   const handleStyle: React.CSSProperties = horizontal
     ? {
         position: "absolute", top: 0, bottom: 0,
         left: side === "right" ? 0 : undefined,
         right: side === "left" ? 0 : undefined,
-        width: 5, cursor: "col-resize", zIndex: 20,
+        width: 12, cursor: "col-resize", zIndex: 20,
       }
     : {
         position: "absolute", left: 0, right: 0,
         top: side === "bottom" ? 0 : undefined,
         bottom: side === "top" ? 0 : undefined,
-        height: 5, cursor: "row-resize", zIndex: 20,
+        height: 12, cursor: "row-resize", zIndex: 20,
       };
 
   /** The chat-area rect used to clip the drop hints while dragging. */
@@ -194,8 +266,7 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
       <div
         ref={panelRef}
         style={{
-          width,
-          height,
+          ...(horizontal ? { width, height: "100%" } : { width: "100%", height }),
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
@@ -254,24 +325,50 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
           {children}
         </div>
 
-        {/* Size handle on the edge facing the chat area (side-dependent) */}
+        {/* Size handle: 12px hot zone + 2px visual line (host sidebar style) */}
         <div
-          onMouseDown={startResize}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
+          onLostPointerCapture={onLostPointerCapture}
+          onKeyDown={onKeyDown}
+          onDoubleClick={() => {
+            horizontal ? setWidth(DEFAULT_SIZE) : setHeight(DEFAULT_SIZE);
+          }}
           onMouseEnter={() => setHandleHover(true)}
           onMouseLeave={() => setHandleHover(false)}
           role="separator"
           aria-orientation={horizontal ? "vertical" : "horizontal"}
-          title="拖拽调整大小"
+          aria-valuemin={MIN_SIZE}
+          aria-valuemax={MAX_SIZE}
+          aria-valuenow={horizontal ? width : height}
+          tabIndex={0}
+          title="拖拽调整大小（双击还原）"
           style={{
             ...handleStyle,
-            background: resizing
-              ? "var(--accent)"
-              : handleHover
-                ? "color-mix(in srgb, var(--accent) 22%, transparent)"
-                : "transparent",
-            transition: "background 0.1s ease",
+            outline: "none",
+            touchAction: "none",
           }}
-        />
+        >
+          {/* 2px visual line centered in the hot zone */}
+          <div
+            style={{
+              position: "absolute",
+              ...(horizontal
+                ? { top: 0, bottom: 0, left: "50%", width: 2, transform: "translateX(-50%)" }
+                : { left: 0, right: 0, top: "50%", height: 2, transform: "translateY(-50%)" }),
+              background: isResizing
+                ? "var(--accent)"
+                : handleHover
+                  ? "color-mix(in srgb, var(--accent) 55%, var(--border))"
+                  : "var(--border)",
+              pointerEvents: "none",
+              transition: "background 0.12s ease",
+              borderRadius: 1,
+            }}
+          />
+        </div>
       </div>
 
       {/* Drop hints, clipped to the chat area while dragging the title bar */}

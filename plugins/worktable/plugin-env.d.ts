@@ -39,8 +39,6 @@ export interface PluginApi {
   getStatus(): Promise<unknown>;
   listSessions(): Promise<{ sessions?: Array<{ id: string; cwd?: string }> }>;
   openSession(sessionId: string): void;
-  /** 工作台项注册表（worktable 容器插件读取） */
-  getWorktableItems(): WorktableItem[];
   /** Open the dock panel (rendered below the file browser) */
   openDock(): void;
   /** Dock the panel to a side of the chat area (VSCode-style) */
@@ -65,6 +63,12 @@ export type MessageRenderer = (message: unknown, api: PluginApi) => ReactNode;
 
 declare global {
   interface Window {
+    /** Worktable registry owned by the worktable plugin (register a worktable) */
+    robopiWorktable?: {
+      registerItem(item: WorktableItem): void;
+      getItems(): WorktableItem[];
+      subscribe(listener: () => void): () => void;
+    };
     robopi?: {
       registerSlot(slot: PluginSlotName, renderer: SlotRenderer): void;
       registerComponent(name: OverridableComponentName, factory: ComponentFactory): void;

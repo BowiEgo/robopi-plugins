@@ -21,6 +21,54 @@ if (!robopi) {
 }
 
 // ---------------------------------------------------------------------------
+// Worktable registry (owned by this plugin, not the host)
+// ---------------------------------------------------------------------------
+
+/**
+ * Plugins register worktables via window.robopiWorktable. If worktable has
+ * not loaded yet (plugin load order is not guaranteed), registrations are
+ * buffered in a pending queue and consumed on startup.
+ */
+const registry = new Map<string, WorktableItem>();
+const listeners = new Set<() => void>();
+const PENDING_KEY = "__robopiWorktablePending";
+
+type RegistryApi = {
+  registerItem(item: WorktableItem): void;
+  getItems(): WorktableItem[];
+  subscribe(listener: () => void): () => void;
+};
+
+function registerItem(item: WorktableItem): void {
+  registry.set(item.id, item);
+  listeners.forEach((listener) => listener());
+}
+
+function getItems(): WorktableItem[] {
+  return [...registry.values()];
+}
+
+function publishRegistryApi(): void {
+  const api: RegistryApi = {
+    registerItem,
+    getItems,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+  };
+  (window as unknown as { robopiWorktable?: RegistryApi }).robopiWorktable = api;
+  // Consume registrations that arrived before this plugin loaded
+  const pending = (window as unknown as Record<string, unknown>)[PENDING_KEY] as WorktableItem[] | undefined;
+  if (pending) {
+    for (const item of pending) registerItem(item);
+    delete (window as unknown as Record<string, unknown>)[PENDING_KEY];
+  }
+}
+
+publishRegistryApi();
+
+// ---------------------------------------------------------------------------
 // 共享选中状态：sidebar 工作台列表与 dock 内容区需要联动
 // ---------------------------------------------------------------------------
 
@@ -105,7 +153,7 @@ function ControlRoomPanel({ api }: { api: PluginApi }) {
 
   useEffect(() => {
     const refresh = () => {
-      const registered = api.getWorktableItems();
+      const registered = getItems();
       if (registered.length === 0) return;
       const merged = new Map<string, WorktableItem>();
       for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -246,7 +294,7 @@ function WorktablePanel({ api }: { api: PluginApi }) {
 
   useEffect(() => {
     const refresh = () => {
-      const registered = api.getWorktableItems();
+      const registered = getItems();
       if (registered.length === 0) return;
       const merged = new Map<string, WorktableItem>();
       for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -330,7 +378,7 @@ function WorktableDockPanel() {
 
   useEffect(() => {
     const refresh = () => {
-      const registered = pluginApiShim.getWorktableItems();
+      const registered = getItems();
       if (registered.length === 0) return;
       const merged = new Map<string, WorktableItem>();
       for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -374,7 +422,6 @@ const pluginApiShim: PluginApi = {
   openSession: (sessionId: string) => {
     window.location.assign(`/?session=${encodeURIComponent(sessionId)}`);
   },
-  getWorktableItems: () => (window.robopi as unknown as { getWorktableItems?: () => WorktableItem[] }).getWorktableItems?.() ?? [],
   openDock: () => (window.robopi as unknown as { openDock?: () => void }).openDock?.(),
   setDockSide: (side: DockSide) => (window.robopi as unknown as { setDockSide?: (s: DockSide) => void }).setDockSide?.(side),
   getDockSide: () => (window.robopi as unknown as { getDockSide?: () => DockSide }).getDockSide?.() ?? "left",

@@ -71,12 +71,22 @@
       /* @__PURE__ */ window.React.createElement("span", { style: { display: "flex", gap: 4, flexShrink: 0 } }, doc.tags.map((tag) => /* @__PURE__ */ window.React.createElement("span", { key: tag, style: { fontSize: 10, color: "var(--text-muted)", background: "var(--tool-bg)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 6px" } }, tag)))
     ))));
   }
-  robopi.registerWorktableItem({
+  var pendingKey = "__robopiWorktablePending";
+  var robopiWorktable = window.robopiWorktable;
+  var wikiItem = {
     id: "wiki",
     label: "Wiki \u77E5\u8BC6\u5E93",
     icon: /* @__PURE__ */ window.React.createElement(WikiIcon, null),
     description: "\u4F01\u4E1A\u6587\u6863 \xB7 \u77E5\u8BC6\u5E93 \xB7 \u77E5\u8BC6\u56FE\u8C31",
     component: WikiPanel
-  });
+  };
+  if (robopiWorktable) {
+    robopiWorktable.registerItem(wikiItem);
+  } else {
+    const pending = window[pendingKey];
+    const queue = Array.isArray(pending) ? pending : [];
+    queue.push(wikiItem);
+    window[pendingKey] = queue;
+  }
   console.log("[wiki] loaded \u2705 (Wiki \u77E5\u8BC6\u5E93\u5DE5\u4F5C\u53F0)");
 })();

@@ -159,12 +159,25 @@ function WikiPanel({ api }: { api: PluginApi }) {
 // Register the worktable item (overrides the control-room mock card)
 // ---------------------------------------------------------------------------
 
-robopi.registerWorktableItem({
+// Register via the worktable plugin's registry (buffered if not loaded yet)
+const pendingKey = "__robopiWorktablePending";
+const robopiWorktable = (window as unknown as { robopiWorktable?: { registerItem: (item: unknown) => void } }).robopiWorktable;
+const wikiItem = {
   id: "wiki",
   label: "Wiki 知识库",
   icon: <WikiIcon />,
   description: "企业文档 · 知识库 · 知识图谱",
   component: WikiPanel,
-});
+};
+
+if (robopiWorktable) {
+  robopiWorktable.registerItem(wikiItem);
+} else {
+  // worktable not loaded yet: buffer for startup consumption
+  const pending = (window as unknown as Record<string, unknown>)[pendingKey];
+  const queue = Array.isArray(pending) ? pending : [];
+  queue.push(wikiItem);
+  (window as unknown as Record<string, unknown>)[pendingKey] = queue;
+}
 
 console.log("[wiki] loaded ✅ (Wiki 知识库工作台)");
