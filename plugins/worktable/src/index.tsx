@@ -33,10 +33,20 @@ const registry = new Map<string, WorktableItem>();
 const listeners = new Set<() => void>();
 const PENDING_KEY = "__robopiWorktablePending";
 
+// Breadcrumb state: per-worktable panel path + navigation subscribers
+const paths = new Map<string, string[]>();
+const pathListeners = new Set<() => void>();
+const navListeners = new Set<(id: string, targetIndex: number) => void>();
+
 type RegistryApi = {
   registerItem(item: WorktableItem): void;
   getItems(): WorktableItem[];
   subscribe(listener: () => void): () => void;
+  /** Breadcrumb: the panel path of a worktable (e.g. ["文档管理"]) */
+  setPath(id: string, path: string[]): void;
+  getPath(id: string): string[];
+  /** Fired when a breadcrumb item is clicked (id + target path index) */
+  onPathNavigate(cb: (id: string, targetIndex: number) => void): () => void;
 };
 
 function registerItem(item: WorktableItem): void {
@@ -48,6 +58,15 @@ function getItems(): WorktableItem[] {
   return [...registry.values()];
 }
 
+function setPath(id: string, path: string[]): void {
+  paths.set(id, path);
+  pathListeners.forEach((listener) => listener());
+}
+
+function getPath(id: string): string[] {
+  return paths.get(id) ?? [];
+}
+
 function publishRegistryApi(): void {
   const api: RegistryApi = {
     registerItem,
@@ -55,6 +74,12 @@ function publishRegistryApi(): void {
     subscribe: (listener) => {
       listeners.add(listener);
       return () => { listeners.delete(listener); };
+    },
+    setPath,
+    getPath,
+    onPathNavigate: (cb) => {
+      navListeners.add(cb);
+      return () => { navListeners.delete(cb); };
     },
   };
   (window as unknown as { robopiWorktable?: RegistryApi }).robopiWorktable = api;
@@ -372,9 +397,23 @@ function WorktablePanel({ api }: { api: PluginApi }) {
 // Dock content: the selected worktable inside the abstract DockPanel
 // ---------------------------------------------------------------------------
 
+/** Breadcrumb item click: index 0 is the worktable root page (-1), index >= 1
+ * maps to path[index - 1] inside the panel. */
+function onBreadcrumbClick(worktableId: string, index: number): void {
+  setSelectedWorktableId(worktableId);
+  navListeners.forEach((cb) => cb(worktableId, index === 0 ? -1 : index - 1));
+}
+
 function WorktableDockPanel() {
   const [items, setItems] = useState<WorktableItem[]>(BUILTIN_ITEMS);
   const selected = useSelectedWorktableId();
+  // Re-render when a panel updates its breadcrumb path
+  const [, setPathVersion] = useState(0);
+  useEffect(() => {
+    const listener = () => setPathVersion((v) => v + 1);
+    pathListeners.add(listener);
+    return () => { pathListeners.delete(listener); };
+  }, []);
 
   useEffect(() => {
     const refresh = () => {
@@ -391,10 +430,13 @@ function WorktableDockPanel() {
   }, [selected]); // refresh immediately when the selection changes
 
   const item = items.find((i) => i.id === selected) ?? items[0];
+  const breadcrumb = item ? [item.label, ...getPath(selected)] : ["工作台"];
 
   return (
     <DockPanel
       title={item ? <>{item.icon} {item.label}</> : "工作台"}
+      breadcrumb={breadcrumb}
+      onBreadcrumbClick={(index) => onBreadcrumbClick(selected, index)}
       api={pluginApiShim}
     >
       {!item && <div style={{ padding: 12, fontSize: 12, color: "var(--text-dim)" }}>无工作台</div>}

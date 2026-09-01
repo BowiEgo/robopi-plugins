@@ -3,7 +3,7 @@
   // plugins-dev/robopi-plugins/plugins/worktable/src/dock-panel.tsx
   var { useEffect, useRef, useState } = window.React;
   var MIN_SIZE = 200;
-  var MAX_SIZE = 640;
+  var MAX_SIZE = 1200;
   var DEFAULT_SIZE = 300;
   var WIDTH_KEY = "robopi-worktable-width";
   var HEIGHT_KEY = "robopi-worktable-height";
@@ -25,7 +25,13 @@
     const stored = Number(window.localStorage.getItem(key));
     return Number.isFinite(stored) ? Math.min(MAX_SIZE, Math.max(MIN_SIZE, stored)) : fallback;
   }
-  function DockPanel({ title, api, children }) {
+  function DockPanel({
+    title,
+    breadcrumb = [],
+    onBreadcrumbClick: onBreadcrumbClick2,
+    api,
+    children
+  }) {
     const [width, setWidth] = useState(() => readStoredSize(WIDTH_KEY, 320));
     const [height, setHeight] = useState(() => readStoredSize(HEIGHT_KEY, 280));
     const [dragHint, setDragHint] = useState(null);
@@ -261,7 +267,52 @@
           },
           /* @__PURE__ */ window.React.createElement(GripIcon, null)
         ),
-        /* @__PURE__ */ window.React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, display: "flex", alignItems: "center", gap: 6 } }, title),
+        /* @__PURE__ */ window.React.createElement(
+          "nav",
+          {
+            "aria-label": "\u9762\u5305\u5C51",
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
+              flex: 1,
+              minWidth: 0,
+              overflow: "hidden",
+              fontSize: 12
+            }
+          },
+          breadcrumb.length > 0 ? breadcrumb.map((crumb, index) => {
+            const last = index === breadcrumb.length - 1;
+            return /* @__PURE__ */ window.React.createElement("span", { key: `${crumb}-${index}`, style: { display: "flex", alignItems: "center", gap: 3, minWidth: 0 } }, index > 0 && /* @__PURE__ */ window.React.createElement("span", { style: { color: "var(--text-dim)", flexShrink: 0 } }, "\u203A"), last ? /* @__PURE__ */ window.React.createElement("span", { style: { fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, crumb) : /* @__PURE__ */ window.React.createElement(
+              "button",
+              {
+                type: "button",
+                onClick: () => onBreadcrumbClick2?.(index),
+                style: {
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  fontSize: 12,
+                  padding: "1px 3px",
+                  borderRadius: 4,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap"
+                },
+                onMouseEnter: (e) => {
+                  e.currentTarget.style.color = "var(--accent)";
+                  e.currentTarget.style.background = "var(--bg-hover)";
+                },
+                onMouseLeave: (e) => {
+                  e.currentTarget.style.color = "var(--text-muted)";
+                  e.currentTarget.style.background = "transparent";
+                }
+              },
+              crumb
+            ));
+          }) : /* @__PURE__ */ window.React.createElement("span", { style: { fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 } }, title)
+        ),
         /* @__PURE__ */ window.React.createElement(
           "button",
           {
@@ -354,12 +405,22 @@
   var registry = /* @__PURE__ */ new Map();
   var listeners = /* @__PURE__ */ new Set();
   var PENDING_KEY = "__robopiWorktablePending";
+  var paths = /* @__PURE__ */ new Map();
+  var pathListeners = /* @__PURE__ */ new Set();
+  var navListeners = /* @__PURE__ */ new Set();
   function registerItem(item) {
     registry.set(item.id, item);
     listeners.forEach((listener) => listener());
   }
   function getItems() {
     return [...registry.values()];
+  }
+  function setPath(id, path) {
+    paths.set(id, path);
+    pathListeners.forEach((listener) => listener());
+  }
+  function getPath(id) {
+    return paths.get(id) ?? [];
   }
   function publishRegistryApi() {
     const api = {
@@ -369,6 +430,14 @@
         listeners.add(listener);
         return () => {
           listeners.delete(listener);
+        };
+      },
+      setPath,
+      getPath,
+      onPathNavigate: (cb) => {
+        navListeners.add(cb);
+        return () => {
+          navListeners.delete(cb);
         };
       }
     };
@@ -622,9 +691,21 @@
       );
     })));
   }
+  function onBreadcrumbClick(worktableId, index) {
+    setSelectedWorktableId(worktableId);
+    navListeners.forEach((cb) => cb(worktableId, index === 0 ? -1 : index - 1));
+  }
   function WorktableDockPanel() {
     const [items, setItems] = useState2(BUILTIN_ITEMS);
     const selected = useSelectedWorktableId();
+    const [, setPathVersion] = useState2(0);
+    useEffect2(() => {
+      const listener = () => setPathVersion((v) => v + 1);
+      pathListeners.add(listener);
+      return () => {
+        pathListeners.delete(listener);
+      };
+    }, []);
     useEffect2(() => {
       const refresh = () => {
         const registered = getItems();
@@ -639,10 +720,13 @@
       return () => clearInterval(timer);
     }, [selected]);
     const item = items.find((i) => i.id === selected) ?? items[0];
+    const breadcrumb = item ? [item.label, ...getPath(selected)] : ["\u5DE5\u4F5C\u53F0"];
     return /* @__PURE__ */ window.React.createElement(
       DockPanel,
       {
         title: item ? /* @__PURE__ */ window.React.createElement(window.React.Fragment, null, item.icon, " ", item.label) : "\u5DE5\u4F5C\u53F0",
+        breadcrumb,
+        onBreadcrumbClick: (index) => onBreadcrumbClick(selected, index),
         api: pluginApiShim
       },
       !item && /* @__PURE__ */ window.React.createElement("div", { style: { padding: 12, fontSize: 12, color: "var(--text-dim)" } }, "\u65E0\u5DE5\u4F5C\u53F0"),

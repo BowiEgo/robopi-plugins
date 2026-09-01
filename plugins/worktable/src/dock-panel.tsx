@@ -17,7 +17,7 @@ import type * as React from "react";
 const { useEffect, useRef, useState } = window.React as typeof import("react");
 
 const MIN_SIZE = 200;
-const MAX_SIZE = 640;
+const MAX_SIZE = 1200;
 const DEFAULT_SIZE = 300;
 const WIDTH_KEY = "robopi-worktable-width";
 const HEIGHT_KEY = "robopi-worktable-height";
@@ -58,7 +58,20 @@ function readStoredSize(key: string, fallback: number): number {
   return Number.isFinite(stored) ? Math.min(MAX_SIZE, Math.max(MIN_SIZE, stored)) : fallback;
 }
 
-export function DockPanel({ title, api, children }: { title: React.ReactNode; api: PluginApi; children: React.ReactNode }) {
+export function DockPanel({
+  title,
+  breadcrumb = [],
+  onBreadcrumbClick,
+  api,
+  children,
+}: {
+  title: React.ReactNode;
+  /** Breadcrumb trail: [worktable label, ...panel path] */
+  breadcrumb?: string[];
+  onBreadcrumbClick?: (index: number) => void;
+  api: PluginApi;
+  children: React.ReactNode;
+}) {
   const [width, setWidth] = useState(() => readStoredSize(WIDTH_KEY, 320));
   const [height, setHeight] = useState(() => readStoredSize(HEIGHT_KEY, 280));
   const [dragHint, setDragHint] = useState<DockSide | null>(null);
@@ -302,9 +315,48 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
           >
             <GripIcon />
           </button>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
-            {title}
-          </span>
+          {/* Breadcrumb trail (current position in the panel) */}
+          <nav
+            aria-label="面包屑"
+            style={{
+              display: "flex", alignItems: "center", gap: 3, flex: 1,
+              minWidth: 0, overflow: "hidden", fontSize: 12,
+            }}
+          >
+            {breadcrumb.length > 0 ? breadcrumb.map((crumb, index) => {
+              const last = index === breadcrumb.length - 1;
+              return (
+                <span key={`${crumb}-${index}`} style={{ display: "flex", alignItems: "center", gap: 3, minWidth: 0 }}>
+                  {index > 0 && (
+                    <span style={{ color: "var(--text-dim)", flexShrink: 0 }}>›</span>
+                  )}
+                  {last ? (
+                    <span style={{ fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {crumb}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onBreadcrumbClick?.(index)}
+                      style={{
+                        border: "none", background: "none", cursor: "pointer",
+                        color: "var(--text-muted)", fontSize: 12, padding: "1px 3px", borderRadius: 4,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; e.currentTarget.style.background = "var(--bg-hover)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "transparent"; }}
+                    >
+                      {crumb}
+                    </button>
+                  )}
+                </span>
+              );
+            }) : (
+              <span style={{ fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+                {title}
+              </span>
+            )}
+          </nav>
           <button
             type="button"
             onMouseDown={(e) => e.stopPropagation()}
