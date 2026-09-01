@@ -51,7 +51,7 @@ export interface PluginApi {
 export interface WorktableItem {
   id: string;
   label: string;
-  icon?: string;
+  icon?: ReactNode;
   description?: string;
   component?: ComponentType<{ api: PluginApi }>;
 }

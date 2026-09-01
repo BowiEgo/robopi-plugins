@@ -5,8 +5,9 @@
  *
  * Implemented entirely inside the plugin:
  * - Title bar drag re-docks the panel to any of four sides (top/left/right/
- *   bottom) with live drop hints; release commits the new side
- * - Size adjust: left/right panels resize by width, top/bottom by height
+ *   bottom); drop hints are clipped to the chat area (the dock layout
+ *   container), not the whole page
+ * - Size adjust: corner handle, width for left/right, height for top/bottom
  * - Close button (host exposes setDockOpen)
  */
 
@@ -45,12 +46,13 @@ function readStoredSize(key: string, fallback: number): number {
   return Number.isFinite(stored) ? Math.min(MAX_SIZE, Math.max(MIN_SIZE, stored)) : fallback;
 }
 
-export function DockPanel({ title, api, children }: { title: string; api: PluginApi; children: React.ReactNode }) {
+export function DockPanel({ title, api, children }: { title: React.ReactNode; api: PluginApi; children: React.ReactNode }) {
   const [width, setWidth] = useState(() => readStoredSize(WIDTH_KEY, 320));
   const [height, setHeight] = useState(() => readStoredSize(HEIGHT_KEY, 280));
   const [dragHint, setDragHint] = useState<DockSide | null>(null);
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const widthRef = useRef(width);
   const heightRef = useRef(height);
   widthRef.current = width;
@@ -69,8 +71,8 @@ export function DockPanel({ title, api, children }: { title: string; api: Plugin
 
   /**
    * Title-bar drag: pick a docking side from the pointer position
-   * (left/right thirds on the x axis, otherwise top/bottom on y),
-   * show the drop hint, commit on release.
+   * (left/right thirds on x, otherwise top/bottom on y), show the drop
+   * hint clipped to the chat area, commit on release.
    */
   const startHeaderDrag = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -93,7 +95,7 @@ export function DockPanel({ title, api, children }: { title: string; api: Plugin
     window.addEventListener("mouseup", up);
   };
 
-  /** Edge handle drag: width for left/right docks, height for top/bottom. */
+  /** Corner handle drag: width for left/right docks, height for top/bottom. */
   const startResize = (e: React.MouseEvent) => {
     e.preventDefault();
     setResizing(true);
@@ -114,9 +116,15 @@ export function DockPanel({ title, api, children }: { title: string; api: Plugin
     window.addEventListener("mouseup", up);
   };
 
+  /** The dock layout container (chat area) - the drop hints are clipped to it. */
+  const chatAreaRect = dragging && panelRef.current
+    ? panelRef.current.parentElement?.parentElement?.getBoundingClientRect()
+    : undefined;
+
   return (
     <>
       <div
+        ref={panelRef}
         style={{
           width,
           height,
@@ -144,7 +152,7 @@ export function DockPanel({ title, api, children }: { title: string; api: Plugin
           }}
           title="拖拽标题栏切换停靠位置（上/下/左/右）"
         >
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
             {title}
           </span>
           <button
@@ -162,7 +170,9 @@ export function DockPanel({ title, api, children }: { title: string; api: Plugin
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>{children}</div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+          {children}
+        </div>
       </div>
 
       {/* Size handle (bottom-right corner) */}
@@ -179,9 +189,19 @@ export function DockPanel({ title, api, children }: { title: string; api: Plugin
         }}
       />
 
-      {/* Drop hints while dragging the title bar */}
-      {dragging && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, pointerEvents: "none" }}>
+      {/* Drop hints, clipped to the chat area while dragging the title bar */}
+      {dragging && chatAreaRect && (
+        <div
+          style={{
+            position: "fixed",
+            left: chatAreaRect.left,
+            top: chatAreaRect.top,
+            width: chatAreaRect.width,
+            height: chatAreaRect.height,
+            zIndex: 9999,
+            pointerEvents: "none",
+          }}
+        >
           <DropZone side="top" hint={dragHint} />
           <DropZone side="left" hint={dragHint} />
           <DropZone side="right" hint={dragHint} />

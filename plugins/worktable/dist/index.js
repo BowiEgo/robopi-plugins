@@ -27,6 +27,7 @@
     const [dragHint, setDragHint] = useState(null);
     const [dragging, setDragging] = useState(false);
     const [resizing, setResizing] = useState(false);
+    const panelRef = useRef(null);
     const widthRef = useRef(width);
     const heightRef = useRef(height);
     widthRef.current = width;
@@ -82,9 +83,11 @@
       window.addEventListener("mousemove", move);
       window.addEventListener("mouseup", up);
     };
+    const chatAreaRect = dragging && panelRef.current ? panelRef.current.parentElement?.parentElement?.getBoundingClientRect() : void 0;
     return /* @__PURE__ */ window.React.createElement(window.React.Fragment, null, /* @__PURE__ */ window.React.createElement(
       "div",
       {
+        ref: panelRef,
         style: {
           width,
           height,
@@ -121,7 +124,7 @@
           },
           title: "\u62D6\u62FD\u6807\u9898\u680F\u5207\u6362\u505C\u9760\u4F4D\u7F6E\uFF08\u4E0A/\u4E0B/\u5DE6/\u53F3\uFF09"
         },
-        /* @__PURE__ */ window.React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 } }, title),
+        /* @__PURE__ */ window.React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, display: "flex", alignItems: "center", gap: 6 } }, title),
         /* @__PURE__ */ window.React.createElement(
           "button",
           {
@@ -142,7 +145,7 @@
           "\xD7"
         )
       ),
-      /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: "auto" } }, children)
+      /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" } }, children)
     ), /* @__PURE__ */ window.React.createElement(
       "div",
       {
@@ -164,16 +167,33 @@
           transition: "background 0.1s ease"
         }
       }
-    ), dragging && /* @__PURE__ */ window.React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 9999, pointerEvents: "none" } }, /* @__PURE__ */ window.React.createElement(DropZone, { side: "top", hint: dragHint }), /* @__PURE__ */ window.React.createElement(DropZone, { side: "left", hint: dragHint }), /* @__PURE__ */ window.React.createElement(DropZone, { side: "right", hint: dragHint }), /* @__PURE__ */ window.React.createElement(DropZone, { side: "bottom", hint: dragHint })));
+    ), dragging && chatAreaRect && /* @__PURE__ */ window.React.createElement(
+      "div",
+      {
+        style: {
+          position: "fixed",
+          left: chatAreaRect.left,
+          top: chatAreaRect.top,
+          width: chatAreaRect.width,
+          height: chatAreaRect.height,
+          zIndex: 9999,
+          pointerEvents: "none"
+        }
+      },
+      /* @__PURE__ */ window.React.createElement(DropZone, { side: "top", hint: dragHint }),
+      /* @__PURE__ */ window.React.createElement(DropZone, { side: "left", hint: dragHint }),
+      /* @__PURE__ */ window.React.createElement(DropZone, { side: "right", hint: dragHint }),
+      /* @__PURE__ */ window.React.createElement(DropZone, { side: "bottom", hint: dragHint })
+    ));
   }
 
   // plugins-dev/robopi-plugins/plugins/worktable/src/index.tsx
-  var { useEffect: useEffect2, useRef: useRef2, useState: useState2 } = window.React;
+  var { useEffect: useEffect2, useState: useState2 } = window.React;
   var robopi = window.robopi;
   if (!robopi) {
     throw new Error("[worktable] \u5BBF\u4E3B\u672A\u6CE8\u5165 robopi API");
   }
-  var selectedWorktableId = "overview";
+  var selectedWorktableId = "control-room";
   var selectedListeners = /* @__PURE__ */ new Set();
   function getSelectedWorktableId() {
     return selectedWorktableId;
@@ -193,56 +213,30 @@
     }, []);
     return getSelectedWorktableId();
   }
-  function OverviewPanel({ api }) {
-    const [stats, setStats] = useState2(null);
-    useEffect2(() => {
-      let cancelled = false;
-      Promise.all([api.listSessions(), api.getStatus()]).then(([sessions, status]) => {
-        if (cancelled) return;
-        const hello = status?.services?.hello;
-        setStats({
-          sessions: sessions?.sessions?.length ?? 0,
-          greetingCalls: hello?.calls ?? 0
-        });
-      }).catch(() => {
-      });
-      return () => {
-        cancelled = true;
-      };
-    }, [api]);
-    return /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 12, color: "var(--text-muted)", lineHeight: 1.7 } }, /* @__PURE__ */ window.React.createElement("div", { style: { fontWeight: 700, color: "var(--text)", marginBottom: 6 } }, "\u{1F4CA} \u6982\u89C8"), /* @__PURE__ */ window.React.createElement("div", null, "\u4F1A\u8BDD\u6570\uFF1A", stats ? stats.sessions : "\u2026"), /* @__PURE__ */ window.React.createElement("div", null, "\u63D2\u4EF6\u63A2\u9488\u8C03\u7528\uFF1A", stats ? stats.greetingCalls : "\u2026"), /* @__PURE__ */ window.React.createElement("div", { style: { marginTop: 8, color: "var(--text-dim)", fontSize: 11 } }, "\u5DE5\u4F5C\u53F0\u9879\u7531\u63D2\u4EF6\u6CE8\u518C\uFF08wiki\u3001\u529E\u516C\u52A9\u624B\u2026\uFF09\uFF0C\u540C\u540D id \u53EF\u8986\u76D6\u5185\u7F6E\u5360\u4F4D\u3002"));
+  var iconProps = {
+    width: 14,
+    height: 14,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  };
+  function ControlRoomIcon() {
+    return /* @__PURE__ */ window.React.createElement("svg", { ...iconProps }, /* @__PURE__ */ window.React.createElement("rect", { x: "3", y: "3", width: "8", height: "10", rx: "1.5" }), /* @__PURE__ */ window.React.createElement("rect", { x: "13", y: "3", width: "8", height: "6", rx: "1.5" }), /* @__PURE__ */ window.React.createElement("rect", { x: "13", y: "11", width: "8", height: "10", rx: "1.5" }), /* @__PURE__ */ window.React.createElement("rect", { x: "3", y: "15", width: "8", height: "6", rx: "1.5" }));
   }
-  function PlaceholderPanel({ item }) {
-    return /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 12, color: "var(--text-dim)", lineHeight: 1.6 } }, /* @__PURE__ */ window.React.createElement("div", { style: { fontWeight: 700, color: "var(--text)", marginBottom: 6 } }, item.icon ?? "\u{1F9E9}", " ", item.label), item.description && /* @__PURE__ */ window.React.createElement("div", { style: { marginBottom: 6 } }, item.description), /* @__PURE__ */ window.React.createElement("div", null, "\u8BE5\u5DE5\u4F5C\u53F0\u5C1A\u672A\u5B89\u88C5\u5BF9\u5E94\u63D2\u4EF6\uFF08", item.id, "\uFF09\uFF0C\u5B89\u88C5\u540E\u81EA\u52A8\u542F\u7528\u3002"));
+  function WikiIcon() {
+    return /* @__PURE__ */ window.React.createElement("svg", { ...iconProps }, /* @__PURE__ */ window.React.createElement("path", { d: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20" }), /* @__PURE__ */ window.React.createElement("path", { d: "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" }));
   }
-  var BUILTIN_ITEMS = [
-    {
-      id: "overview",
-      label: "\u6982\u89C8",
-      icon: "\u{1F4CA}",
-      description: "\u4F1A\u8BDD\u7EDF\u8BA1\u4E0E\u63D2\u4EF6\u72B6\u6001",
-      component: OverviewPanel
-    },
-    {
-      id: "wiki",
-      label: "Wiki \u77E5\u8BC6\u5E93",
-      icon: "\u{1F4DA}",
-      description: "\u4F01\u4E1A\u77E5\u8BC6\u5E93\uFF08\u6587\u6863/Wiki/\u77E5\u8BC6\u56FE\u8C31\uFF0C\u89C1 robopi-plugins/wiki \u8BBE\u8BA1\uFF09"
-    },
-    {
-      id: "office",
-      label: "\u529E\u516C\u52A9\u624B",
-      icon: "\u{1F9D1}\u200D\u{1F4BC}",
-      description: "\u65E5\u7A0B/\u90AE\u4EF6/\u5BA1\u6279\u7B49\u529E\u516C\u5DE5\u5177"
-    }
-  ];
-  function WorktablePanel({ api }) {
-    const [open, setOpen] = useState2(true);
+  function OfficeIcon() {
+    return /* @__PURE__ */ window.React.createElement("svg", { ...iconProps }, /* @__PURE__ */ window.React.createElement("path", { d: "M3 21h18" }), /* @__PURE__ */ window.React.createElement("path", { d: "M5 21V7l7-4 7 4v14" }), /* @__PURE__ */ window.React.createElement("path", { d: "M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1" }));
+  }
+  function ControlRoomPanel({ api }) {
     const [items, setItems] = useState2(BUILTIN_ITEMS);
-    const selected = useSelectedWorktableId();
     useEffect2(() => {
       const refresh = () => {
-        const registered = api.getWorktableItems();
+        const registered = window.robopi.getWorktableItems?.() ?? [];
         if (registered.length === 0) return;
         const merged = /* @__PURE__ */ new Map();
         for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -252,98 +246,198 @@
       refresh();
       const timer = setInterval(refresh, 5e3);
       return () => clearInterval(timer);
-    }, [api]);
-    return /* @__PURE__ */ window.React.createElement(
+    }, []);
+    const mockCards = [
+      { id: "wiki", label: "Wiki \u77E5\u8BC6\u5E93", icon: /* @__PURE__ */ window.React.createElement(WikiIcon, null), description: "\u4F01\u4E1A\u6587\u6863 \xB7 \u77E5\u8BC6\u5E93 \xB7 \u77E5\u8BC6\u56FE\u8C31" },
+      { id: "office", label: "\u529E\u516C\u52A9\u624B", icon: /* @__PURE__ */ window.React.createElement(OfficeIcon, null), description: "\u65E5\u7A0B \xB7 \u90AE\u4EF6 \xB7 \u5BA1\u6279" }
+    ];
+    return /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", padding: "28px 24px", gap: 24, overflowY: "auto" } }, /* @__PURE__ */ window.React.createElement("div", { style: { textAlign: "center", padding: "16px 0 4px" } }, /* @__PURE__ */ window.React.createElement(
       "div",
       {
         style: {
+          width: 52,
+          height: 52,
+          margin: "0 auto 12px",
+          borderRadius: 14,
           display: "flex",
-          flexDirection: "column",
-          minHeight: 0
+          alignItems: "center",
+          justifyContent: "center",
+          background: "color-mix(in srgb, var(--accent) 12%, var(--bg))",
+          color: "var(--accent)",
+          border: "1px solid color-mix(in srgb, var(--accent) 28%, var(--border))"
+        }
+      },
+      /* @__PURE__ */ window.React.createElement("svg", { width: "26", height: "26", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ window.React.createElement("rect", { x: "3", y: "3", width: "8", height: "10", rx: "1.5" }), /* @__PURE__ */ window.React.createElement("rect", { x: "13", y: "3", width: "8", height: "6", rx: "1.5" }), /* @__PURE__ */ window.React.createElement("rect", { x: "13", y: "11", width: "8", height: "10", rx: "1.5" }), /* @__PURE__ */ window.React.createElement("rect", { x: "3", y: "15", width: "8", height: "6", rx: "1.5" }))
+    ), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 17, fontWeight: 700, color: "var(--text)" } }, "\u6B22\u8FCE\u4F7F\u7528 RoboPi \u5DE5\u4F5C\u53F0"), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 12, color: "var(--text-muted)", marginTop: 6, lineHeight: 1.6 } }, "\u96C6\u4E2D\u7BA1\u7406\u4F60\u7684\u5DE5\u4F5C\u53F0 \xB7 \u4ECE\u4E0B\u65B9\u9009\u62E9\u8FDB\u5165\uFF0C\u6216\u70B9\u51FB\u5DE6\u4FA7\u5217\u8868\u5207\u6362")), /* @__PURE__ */ window.React.createElement(
+      "div",
+      {
+        style: {
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+          gap: 12
+        }
+      },
+      items.map((item) => /* @__PURE__ */ window.React.createElement(
+        "button",
+        {
+          key: item.id,
+          type: "button",
+          onClick: () => setSelectedWorktableId(item.id),
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 10,
+            padding: 14,
+            borderRadius: 12,
+            cursor: "pointer",
+            textAlign: "left",
+            background: "var(--bg)",
+            border: "1px solid var(--border)",
+            transition: "border-color 0.12s ease, box-shadow 0.12s ease"
+          },
+          onMouseEnter: (e) => {
+            e.currentTarget.style.borderColor = "color-mix(in srgb, var(--accent) 45%, var(--border))";
+            e.currentTarget.style.boxShadow = "0 2px 10px color-mix(in srgb, var(--accent) 10%, transparent)";
+          },
+          onMouseLeave: (e) => {
+            e.currentTarget.style.borderColor = "var(--border)";
+            e.currentTarget.style.boxShadow = "none";
+          }
+        },
+        /* @__PURE__ */ window.React.createElement("span", { style: { color: "var(--accent)", display: "flex" } }, item.icon),
+        /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 13, fontWeight: 600, color: "var(--text)" } }, item.label),
+        item.description && /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 } }, item.description)
+      )),
+      mockCards.map((card) => /* @__PURE__ */ window.React.createElement(
+        "div",
+        {
+          key: `mock-${card.id}`,
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 10,
+            padding: 14,
+            borderRadius: 12,
+            background: "color-mix(in srgb, var(--bg-panel) 60%, var(--bg))",
+            border: "1px dashed var(--border)",
+            opacity: 0.75
+          }
+        },
+        /* @__PURE__ */ window.React.createElement("span", { style: { color: "var(--text-muted)", display: "flex" } }, card.icon),
+        /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 13, fontWeight: 600, color: "var(--text)" } }, card.label, /* @__PURE__ */ window.React.createElement("span", { style: { marginLeft: 6, fontSize: 10, color: "var(--text-dim)", fontWeight: 400 } }, "\u5373\u5C06\u63A8\u51FA")),
+        /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 } }, card.description)
+      ))
+    ));
+  }
+  var BUILTIN_ITEMS = [
+    {
+      id: "control-room",
+      label: "\u63A7\u5236\u5BA4",
+      icon: /* @__PURE__ */ window.React.createElement(ControlRoomIcon, null),
+      description: "\u6B22\u8FCE\u9875\u4E0E\u5DE5\u4F5C\u53F0\u603B\u89C8",
+      component: ControlRoomPanel
+    }
+  ];
+  function PlaceholderPanel({ item }) {
+    return /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 12, color: "var(--text-dim)", lineHeight: 1.6, padding: 12 } }, /* @__PURE__ */ window.React.createElement("div", { style: { fontWeight: 700, color: "var(--text)", marginBottom: 6 } }, item.icon, " ", item.label), item.description && /* @__PURE__ */ window.React.createElement("div", { style: { marginBottom: 6 } }, item.description), /* @__PURE__ */ window.React.createElement("div", null, "\u8BE5\u5DE5\u4F5C\u53F0\u5C1A\u672A\u5B89\u88C5\u5BF9\u5E94\u63D2\u4EF6\uFF08", item.id, "\uFF09\uFF0C\u5B89\u88C5\u540E\u81EA\u52A8\u542F\u7528\u3002"));
+  }
+  function WorktablePanel({ api }) {
+    const [open, setOpen] = useState2(true);
+    const [items, setItems] = useState2(BUILTIN_ITEMS);
+    const selected = useSelectedWorktableId();
+    useEffect2(() => {
+      const refresh = () => {
+        const registered = window.robopi.getWorktableItems?.() ?? [];
+        if (registered.length === 0) return;
+        const merged = /* @__PURE__ */ new Map();
+        for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
+        for (const item of registered) merged.set(item.id, item);
+        setItems([...merged.values()]);
+      };
+      refresh();
+      const timer = setInterval(refresh, 5e3);
+      return () => clearInterval(timer);
+    }, []);
+    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", flexDirection: "column", minHeight: 0 } }, /* @__PURE__ */ window.React.createElement(
+      "button",
+      {
+        type: "button",
+        onClick: () => setOpen((v) => !v),
+        "aria-expanded": open,
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          width: "100%",
+          padding: "6px 8px",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontSize: 11,
+          fontWeight: 600,
+          color: "var(--text-muted)",
+          textTransform: "uppercase",
+          letterSpacing: 0.4
         }
       },
       /* @__PURE__ */ window.React.createElement(
+        "svg",
+        {
+          width: "10",
+          height: "10",
+          viewBox: "0 0 10 10",
+          fill: "none",
+          stroke: "var(--text-dim)",
+          strokeWidth: "1.8",
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          style: { flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.1s" }
+        },
+        /* @__PURE__ */ window.React.createElement("polyline", { points: "3 2 7 5 3 8" })
+      ),
+      /* @__PURE__ */ window.React.createElement("span", null, "\u5DE5\u4F5C\u53F0"),
+      /* @__PURE__ */ window.React.createElement("span", { style: { marginLeft: "auto", color: "var(--text-dim)", fontWeight: 400, fontSize: 11 } }, items.length)
+    ), open && /* @__PURE__ */ window.React.createElement("div", { style: { padding: "2px 4px 4px" } }, items.map((item) => {
+      const active = selected === item.id;
+      return /* @__PURE__ */ window.React.createElement(
         "button",
         {
+          key: item.id,
           type: "button",
-          onClick: () => setOpen((v) => !v),
-          "aria-expanded": open,
+          onClick: () => {
+            setSelectedWorktableId(item.id);
+            api.openDock();
+          },
           style: {
             display: "flex",
             alignItems: "center",
             gap: 6,
             width: "100%",
-            padding: "6px 8px",
-            background: "none",
-            border: "none",
+            height: 24,
+            padding: "0 8px",
+            borderRadius: 4,
             cursor: "pointer",
-            fontSize: 11,
-            fontWeight: 600,
-            color: "var(--text-muted)",
-            textTransform: "uppercase",
-            letterSpacing: 0.4
+            background: active ? "var(--bg-selected)" : "transparent",
+            border: "none",
+            fontSize: 12,
+            color: "var(--text)",
+            textAlign: "left",
+            whiteSpace: "nowrap"
+          },
+          onMouseEnter: (e) => {
+            if (!active) e.currentTarget.style.background = "var(--bg-hover)";
+          },
+          onMouseLeave: (e) => {
+            if (!active) e.currentTarget.style.background = "transparent";
           }
         },
-        /* @__PURE__ */ window.React.createElement(
-          "svg",
-          {
-            width: "10",
-            height: "10",
-            viewBox: "0 0 10 10",
-            fill: "none",
-            stroke: "var(--text-dim)",
-            strokeWidth: "1.8",
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            style: { flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.1s" }
-          },
-          /* @__PURE__ */ window.React.createElement("polyline", { points: "3 2 7 5 3 8" })
-        ),
-        /* @__PURE__ */ window.React.createElement("span", null, "\u{1F9E9} \u5DE5\u4F5C\u53F0"),
-        /* @__PURE__ */ window.React.createElement("span", { style: { marginLeft: "auto", color: "var(--text-dim)", fontWeight: 400, fontSize: 11 } }, items.length)
-      ),
-      open && /* @__PURE__ */ window.React.createElement("div", { style: { borderTop: "1px solid var(--border)", padding: 4 } }, items.map((item) => {
-        const active = selected === item.id;
-        return /* @__PURE__ */ window.React.createElement(
-          "button",
-          {
-            key: item.id,
-            type: "button",
-            onClick: () => {
-              setSelectedWorktableId(item.id);
-              api.openDock();
-            },
-            style: {
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              width: "100%",
-              height: 24,
-              padding: "0 8px",
-              borderRadius: 4,
-              cursor: "pointer",
-              background: active ? "var(--bg-selected)" : "transparent",
-              border: "none",
-              fontSize: 12,
-              color: "var(--text)",
-              textAlign: "left",
-              whiteSpace: "nowrap"
-            },
-            onMouseEnter: (e) => {
-              if (!active) e.currentTarget.style.background = "var(--bg-hover)";
-            },
-            onMouseLeave: (e) => {
-              if (!active) e.currentTarget.style.background = "transparent";
-            }
-          },
-          /* @__PURE__ */ window.React.createElement("span", { "aria-hidden": true }, item.icon ?? "\u2022"),
-          /* @__PURE__ */ window.React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, item.label)
-        );
-      }))
-    );
+        /* @__PURE__ */ window.React.createElement("span", { style: { color: active ? "var(--accent)" : "var(--text-muted)", display: "flex" } }, item.icon),
+        /* @__PURE__ */ window.React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis" } }, item.label)
+      );
+    })));
   }
-  robopi.registerSlot("sidebar-bottom", (api) => /* @__PURE__ */ window.React.createElement(WorktablePanel, { api }));
-  robopi.registerDockPanel(() => /* @__PURE__ */ window.React.createElement(WorktableDockPanel, null));
   function WorktableDockPanel() {
     const [items, setItems] = useState2(BUILTIN_ITEMS);
     const selected = useSelectedWorktableId();
@@ -361,8 +455,18 @@
       return () => clearInterval(timer);
     }, []);
     const item = items.find((i) => i.id === selected) ?? items[0];
-    return /* @__PURE__ */ window.React.createElement(DockPanel, { title: "\u{1F9E9} \u5DE5\u4F5C\u53F0", api: pluginApiShim }, !item && /* @__PURE__ */ window.React.createElement("div", { style: { padding: 12, fontSize: 12, color: "var(--text-dim)" } }, "\u65E0\u5DE5\u4F5C\u53F0"), item && item.component ? /* @__PURE__ */ window.React.createElement(item.component, { api: pluginApiShim }) : item ? /* @__PURE__ */ window.React.createElement("div", { style: { padding: 12 } }, /* @__PURE__ */ window.React.createElement(PlaceholderPanel, { item })) : null);
+    return /* @__PURE__ */ window.React.createElement(
+      DockPanel,
+      {
+        title: item ? /* @__PURE__ */ window.React.createElement(window.React.Fragment, null, item.icon, " ", item.label) : "\u5DE5\u4F5C\u53F0",
+        api: pluginApiShim
+      },
+      !item && /* @__PURE__ */ window.React.createElement("div", { style: { padding: 12, fontSize: 12, color: "var(--text-dim)" } }, "\u65E0\u5DE5\u4F5C\u53F0"),
+      item && item.component ? /* @__PURE__ */ window.React.createElement(item.component, { api: pluginApiShim }) : item ? /* @__PURE__ */ window.React.createElement(PlaceholderPanel, { item }) : null
+    );
   }
+  robopi.registerSlot("sidebar-bottom", (api) => /* @__PURE__ */ window.React.createElement(WorktablePanel, { api }));
+  robopi.registerDockPanel(() => /* @__PURE__ */ window.React.createElement(WorktableDockPanel, null));
   var pluginApiShim = {
     getStatus: () => fetch("/api/robopi/status", { cache: "no-store" }).then((r) => r.json()),
     listSessions: () => fetch("/api/sessions", { cache: "no-store" }).then((r) => r.json()),
