@@ -41,6 +41,17 @@ function DropZone({ side, hint }: { side: DockSide; hint: DockSide | null }) {
   return <div style={{ ...base, ...rect }} />;
 }
 
+/** Six-dot grip icon (industry-standard drag handle). */
+function GripIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+      {[2, 6, 10].map((x) => [2, 6, 10].map((y) => (
+        <circle key={`${x}-${y}`} cx={x} cy={y} r={1.3} />
+      )))}
+    </svg>
+  );
+}
+
 function readStoredSize(key: string, fallback: number): number {
   const stored = Number(window.localStorage.getItem(key));
   return Number.isFinite(stored) ? Math.min(MAX_SIZE, Math.max(MIN_SIZE, stored)) : fallback;
@@ -160,19 +171,19 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
         borderTop: side === "bottom" ? "1px solid var(--border)" : "none",
       };
 
-  // Resize handle covering the whole edge facing the chat area (8px hot zone)
+  // Sidebar-style resize bar on the edge facing the chat area (5px, hover-highlighted)
   const handleStyle: React.CSSProperties = horizontal
     ? {
         position: "absolute", top: 0, bottom: 0,
         left: side === "right" ? 0 : undefined,
         right: side === "left" ? 0 : undefined,
-        width: 8, cursor: "col-resize", zIndex: 20,
+        width: 5, cursor: "col-resize", zIndex: 20,
       }
     : {
         position: "absolute", left: 0, right: 0,
         top: side === "bottom" ? 0 : undefined,
         bottom: side === "top" ? 0 : undefined,
-        height: 8, cursor: "row-resize", zIndex: 20,
+        height: 5, cursor: "row-resize", zIndex: 20,
       };
 
   /** The chat-area rect used to clip the drop hints while dragging. */
@@ -183,8 +194,8 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
       <div
         ref={panelRef}
         style={{
-          width: "100%",
-          height: "100%",
+          width,
+          height,
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
@@ -195,18 +206,31 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
           position: "relative",
         }}
       >
-        {/* Title bar: drag to re-dock */}
+        {/* Title bar: the grip button on the left starts the docking drag */}
         <div
-          onMouseDown={startHeaderDrag}
           style={{
-            display: "flex", alignItems: "center", gap: 6, height: 30,
-            padding: "0 10px", flexShrink: 0, borderBottom: "1px solid var(--border)",
+            display: "flex", alignItems: "center", gap: 4, height: 30,
+            padding: "0 8px", flexShrink: 0, borderBottom: "1px solid var(--border)",
             fontSize: 12, fontWeight: 700, color: "var(--text)",
-            cursor: dragging ? "grabbing" : "grab", userSelect: "none",
-            background: "var(--bg-panel)",
+            userSelect: "none", background: "var(--bg-panel)",
           }}
-          title="拖拽标题栏切换停靠位置（上/下/左/右）"
         >
+          <button
+            type="button"
+            onMouseDown={startHeaderDrag}
+            title="拖拽移动停靠位置（上/下/左/右）"
+            aria-label="拖拽移动停靠位置"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 22, height: 22, padding: 0, border: "none", borderRadius: 5,
+              background: "transparent", color: "var(--text-dim)",
+              cursor: dragging ? "grabbing" : "grab", flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-dim)"; }}
+          >
+            <GripIcon />
+          </button>
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
             {title}
           </span>
@@ -229,26 +253,26 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
           {children}
         </div>
-      </div>
 
-      {/* Size handle on the edge facing the chat area (side-dependent) */}
-      <div
-        onMouseDown={startResize}
-        onMouseEnter={() => setHandleHover(true)}
-        onMouseLeave={() => setHandleHover(false)}
-        role="separator"
-        aria-orientation={horizontal ? "vertical" : "horizontal"}
-        title="拖拽调整大小"
-        style={{
-          ...handleStyle,
-          background: resizing
-            ? "var(--accent)"
-            : handleHover
-              ? "color-mix(in srgb, var(--accent) 22%, transparent)"
-              : "transparent",
-          transition: "background 0.1s ease",
-        }}
-      />
+        {/* Size handle on the edge facing the chat area (side-dependent) */}
+        <div
+          onMouseDown={startResize}
+          onMouseEnter={() => setHandleHover(true)}
+          onMouseLeave={() => setHandleHover(false)}
+          role="separator"
+          aria-orientation={horizontal ? "vertical" : "horizontal"}
+          title="拖拽调整大小"
+          style={{
+            ...handleStyle,
+            background: resizing
+              ? "var(--accent)"
+              : handleHover
+                ? "color-mix(in srgb, var(--accent) 22%, transparent)"
+                : "transparent",
+            transition: "background 0.1s ease",
+          }}
+        />
+      </div>
 
       {/* Drop hints, clipped to the chat area while dragging the title bar */}
       {dragging && chatAreaRect && (

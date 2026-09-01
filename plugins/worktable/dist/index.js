@@ -17,6 +17,9 @@
     const rect = side === "left" ? { top: 0, bottom: 0, left: 0, width: "28%", borderRight: highlighted ? "3px solid var(--accent)" : "none" } : side === "right" ? { top: 0, bottom: 0, right: 0, width: "28%", borderLeft: highlighted ? "3px solid var(--accent)" : "none" } : side === "top" ? { left: 0, right: 0, top: 0, height: "28%", borderBottom: highlighted ? "3px solid var(--accent)" : "none" } : { left: 0, right: 0, bottom: 0, height: "28%", borderTop: highlighted ? "3px solid var(--accent)" : "none" };
     return /* @__PURE__ */ window.React.createElement("div", { style: { ...base, ...rect } });
   }
+  function GripIcon() {
+    return /* @__PURE__ */ window.React.createElement("svg", { width: "12", height: "12", viewBox: "0 0 12 12", fill: "currentColor", "aria-hidden": true }, [2, 6, 10].map((x) => [2, 6, 10].map((y) => /* @__PURE__ */ window.React.createElement("circle", { key: `${x}-${y}`, cx: x, cy: y, r: 1.3 }))));
+  }
   function readStoredSize(key, fallback) {
     const stored = Number(window.localStorage.getItem(key));
     return Number.isFinite(stored) ? Math.min(MAX_SIZE, Math.max(MIN_SIZE, stored)) : fallback;
@@ -119,7 +122,7 @@
       bottom: 0,
       left: side === "right" ? 0 : void 0,
       right: side === "left" ? 0 : void 0,
-      width: 8,
+      width: 5,
       cursor: "col-resize",
       zIndex: 20
     } : {
@@ -128,7 +131,7 @@
       right: 0,
       top: side === "bottom" ? 0 : void 0,
       bottom: side === "top" ? 0 : void 0,
-      height: 8,
+      height: 5,
       cursor: "row-resize",
       zIndex: 20
     };
@@ -138,8 +141,8 @@
       {
         ref: panelRef,
         style: {
-          width: "100%",
-          height: "100%",
+          width,
+          height,
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
@@ -153,24 +156,53 @@
       /* @__PURE__ */ window.React.createElement(
         "div",
         {
-          onMouseDown: startHeaderDrag,
           style: {
             display: "flex",
             alignItems: "center",
-            gap: 6,
+            gap: 4,
             height: 30,
-            padding: "0 10px",
+            padding: "0 8px",
             flexShrink: 0,
             borderBottom: "1px solid var(--border)",
             fontSize: 12,
             fontWeight: 700,
             color: "var(--text)",
-            cursor: dragging ? "grabbing" : "grab",
             userSelect: "none",
             background: "var(--bg-panel)"
-          },
-          title: "\u62D6\u62FD\u6807\u9898\u680F\u5207\u6362\u505C\u9760\u4F4D\u7F6E\uFF08\u4E0A/\u4E0B/\u5DE6/\u53F3\uFF09"
+          }
         },
+        /* @__PURE__ */ window.React.createElement(
+          "button",
+          {
+            type: "button",
+            onMouseDown: startHeaderDrag,
+            title: "\u62D6\u62FD\u79FB\u52A8\u505C\u9760\u4F4D\u7F6E\uFF08\u4E0A/\u4E0B/\u5DE6/\u53F3\uFF09",
+            "aria-label": "\u62D6\u62FD\u79FB\u52A8\u505C\u9760\u4F4D\u7F6E",
+            style: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 22,
+              height: 22,
+              padding: 0,
+              border: "none",
+              borderRadius: 5,
+              background: "transparent",
+              color: "var(--text-dim)",
+              cursor: dragging ? "grabbing" : "grab",
+              flexShrink: 0
+            },
+            onMouseEnter: (e) => {
+              e.currentTarget.style.background = "var(--bg-hover)";
+              e.currentTarget.style.color = "var(--text)";
+            },
+            onMouseLeave: (e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "var(--text-dim)";
+            }
+          },
+          /* @__PURE__ */ window.React.createElement(GripIcon, null)
+        ),
         /* @__PURE__ */ window.React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, display: "flex", alignItems: "center", gap: 6 } }, title),
         /* @__PURE__ */ window.React.createElement(
           "button",
@@ -193,22 +225,23 @@
           "\xD7"
         )
       ),
-      /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" } }, children)
-    ), /* @__PURE__ */ window.React.createElement(
-      "div",
-      {
-        onMouseDown: startResize,
-        onMouseEnter: () => setHandleHover(true),
-        onMouseLeave: () => setHandleHover(false),
-        role: "separator",
-        "aria-orientation": horizontal ? "vertical" : "horizontal",
-        title: "\u62D6\u62FD\u8C03\u6574\u5927\u5C0F",
-        style: {
-          ...handleStyle,
-          background: resizing ? "var(--accent)" : handleHover ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "transparent",
-          transition: "background 0.1s ease"
+      /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" } }, children),
+      /* @__PURE__ */ window.React.createElement(
+        "div",
+        {
+          onMouseDown: startResize,
+          onMouseEnter: () => setHandleHover(true),
+          onMouseLeave: () => setHandleHover(false),
+          role: "separator",
+          "aria-orientation": horizontal ? "vertical" : "horizontal",
+          title: "\u62D6\u62FD\u8C03\u6574\u5927\u5C0F",
+          style: {
+            ...handleStyle,
+            background: resizing ? "var(--accent)" : handleHover ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "transparent",
+            transition: "background 0.1s ease"
+          }
         }
-      }
+      )
     ), dragging && chatAreaRect && /* @__PURE__ */ window.React.createElement(
       "div",
       {
