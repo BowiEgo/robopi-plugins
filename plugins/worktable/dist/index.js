@@ -27,6 +27,7 @@
     const [dragHint, setDragHint] = useState(null);
     const [dragging, setDragging] = useState(false);
     const [resizing, setResizing] = useState(false);
+    const [handleHover, setHandleHover] = useState(false);
     const panelRef = useRef(null);
     const widthRef = useRef(width);
     const heightRef = useRef(height);
@@ -105,22 +106,31 @@
     };
     const side = api.getDockSide();
     const horizontal = side === "left" || side === "right";
+    const borderStyle = horizontal ? {
+      borderRight: side === "left" ? "1px solid var(--border)" : "none",
+      borderLeft: side === "right" ? "1px solid var(--border)" : "none"
+    } : {
+      borderBottom: side === "top" ? "1px solid var(--border)" : "none",
+      borderTop: side === "bottom" ? "1px solid var(--border)" : "none"
+    };
     const handleStyle = horizontal ? {
       position: "absolute",
       top: 0,
       bottom: 0,
       left: side === "right" ? 0 : void 0,
       right: side === "left" ? 0 : void 0,
-      width: 6,
-      cursor: "col-resize"
+      width: 8,
+      cursor: "col-resize",
+      zIndex: 20
     } : {
       position: "absolute",
       left: 0,
       right: 0,
       top: side === "bottom" ? 0 : void 0,
       bottom: side === "top" ? 0 : void 0,
-      height: 6,
-      cursor: "row-resize"
+      height: 8,
+      cursor: "row-resize",
+      zIndex: 20
     };
     const chatAreaRect = dragging ? chatAreaRef.current : null;
     return /* @__PURE__ */ window.React.createElement(window.React.Fragment, null, /* @__PURE__ */ window.React.createElement(
@@ -136,8 +146,7 @@
           minHeight: 0,
           overflow: "hidden",
           background: "var(--bg-panel)",
-          borderRight: "1px solid var(--border)",
-          borderBottom: "1px solid var(--border)",
+          ...borderStyle,
           position: "relative"
         }
       },
@@ -189,13 +198,14 @@
       "div",
       {
         onMouseDown: startResize,
+        onMouseEnter: () => setHandleHover(true),
+        onMouseLeave: () => setHandleHover(false),
         role: "separator",
         "aria-orientation": horizontal ? "vertical" : "horizontal",
         title: "\u62D6\u62FD\u8C03\u6574\u5927\u5C0F",
         style: {
           ...handleStyle,
-          background: resizing ? "var(--accent)" : "transparent",
-          zIndex: 10,
+          background: resizing ? "var(--accent)" : handleHover ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "transparent",
           transition: "background 0.1s ease"
         }
       }
