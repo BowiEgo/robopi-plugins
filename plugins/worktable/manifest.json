@@ -1,0 +1,9 @@
+{
+  "name": "worktable",
+  "version": "0.1.0",
+  "description": "工作台容器：可折叠头部 + 工作台列表（wiki/办公助手等，支持插件注册工作台）",
+  "entry": "dist/index.js",
+  "slots": [
+    "sidebar-bottom"
+  ]
+}

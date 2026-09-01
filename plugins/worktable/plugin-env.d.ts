@@ -36,6 +36,17 @@ export interface PluginApi {
   getStatus(): Promise<unknown>;
   listSessions(): Promise<{ sessions?: Array<{ id: string; cwd?: string }> }>;
   openSession(sessionId: string): void;
+  /** 工作台项注册表（worktable 容器插件读取） */
+  getWorktableItems(): WorktableItem[];
+}
+
+/** 工作台项（worktable 插件渲染的列表项） */
+export interface WorktableItem {
+  id: string;
+  label: string;
+  icon?: string;
+  description?: string;
+  component?: ComponentType<{ api: PluginApi }>;
 }
 
 /** 插件渲染函数签名（与 window.robopi 一致） */
@@ -49,6 +60,7 @@ declare global {
       registerSlot(slot: PluginSlotName, renderer: SlotRenderer): void;
       registerComponent(name: OverridableComponentName, factory: ComponentFactory): void;
       registerMessageRenderer(customType: string, renderer: MessageRenderer): void;
+      registerWorktableItem(item: WorktableItem): void;
     };
     React?: typeof import("react");
   }

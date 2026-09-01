@@ -1,7 +1,0 @@
-{
-  "name": "workspace",
-  "version": "0.1.0",
-  "description": "TSX 插件开发示例：esbuild watch 构建 + 类型安全 + JSX",
-  "entry": "dist/index.js",
-  "slots": ["sidebar-bottom"]
-}
