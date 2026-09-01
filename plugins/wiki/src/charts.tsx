@@ -9,7 +9,7 @@
  */
 
 import * as echarts from "echarts/core";
-import { BarChart as EBarChart, GraphChart, LineChart, PieChart, RadarChart } from "echarts/charts";
+import { BarChart as EBarChart, GraphChart, LineChart, PieChart } from "echarts/charts";
 import {
   GridComponent,
   LegendComponent,
@@ -24,7 +24,6 @@ echarts.use([
   PieChart,
   LineChart,
   GraphChart,
-  RadarChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,

@@ -230,7 +230,7 @@ function ControlRoomPanel({ api }: { api: PluginApi }) {
           gap: 12,
         }}
       >
-        {items.map((item) => (
+        {items.filter((i) => i.id !== "control-room").map((item) => (
           <button
             key={item.id}
             type="button"
@@ -397,11 +397,16 @@ function WorktablePanel({ api }: { api: PluginApi }) {
 // Dock content: the selected worktable inside the abstract DockPanel
 // ---------------------------------------------------------------------------
 
-/** Breadcrumb item click: index 0 is the worktable root page (-1), index >= 1
- * maps to path[index - 1] inside the panel. */
+/** Breadcrumb trail: [控制室, worktable label, ...panel path].
+ * Click mapping: 0 -> control room, 1 -> worktable root (-1),
+ * >= 2 -> path[index - 2] inside the panel. */
 function onBreadcrumbClick(worktableId: string, index: number): void {
+  if (index === 0) {
+    setSelectedWorktableId("control-room");
+    return;
+  }
   setSelectedWorktableId(worktableId);
-  navListeners.forEach((cb) => cb(worktableId, index === 0 ? -1 : index - 1));
+  navListeners.forEach((cb) => cb(worktableId, index === 1 ? -1 : index - 2));
 }
 
 function WorktableDockPanel() {
@@ -430,7 +435,13 @@ function WorktableDockPanel() {
   }, [selected]); // refresh immediately when the selection changes
 
   const item = items.find((i) => i.id === selected) ?? items[0];
-  const breadcrumb = item ? [item.label, ...getPath(selected)] : ["工作台"];
+  // Trail: 控制室 › worktable label › panel path (control room as the root;
+  // when the control room itself is selected the trail is just 控制室)
+  const breadcrumb = item
+    ? item.id === "control-room"
+      ? ["控制室"]
+      : ["控制室", item.label, ...getPath(selected)]
+    : ["控制室"];
 
   return (
     <DockPanel

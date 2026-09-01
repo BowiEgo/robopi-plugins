@@ -402,16 +402,6 @@
       return result;
     }
   }
-  function find(arr, cb, context) {
-    if (!(arr && cb)) {
-      return;
-    }
-    for (var i = 0, len2 = arr.length; i < len2; i++) {
-      if (cb.call(context, arr[i], i, arr)) {
-        return arr[i];
-      }
-    }
-  }
   function keys(obj) {
     if (!obj) {
       return [];
@@ -34545,774 +34535,6 @@
     });
   }
 
-  // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/chart/radar/radarLayout.js
-  function radarLayout(ecModel) {
-    ecModel.eachSeriesByType("radar", function(seriesModel) {
-      var data = seriesModel.getData();
-      var points2 = [];
-      var coordSys = seriesModel.coordinateSystem;
-      if (!coordSys) {
-        return;
-      }
-      var axes = coordSys.getIndicatorAxes();
-      each(axes, function(axis, axisIndex) {
-        data.each(data.mapDimension(axes[axisIndex].dim), function(val, dataIndex) {
-          points2[dataIndex] = points2[dataIndex] || [];
-          var point = coordSys.dataToPoint(val, axisIndex);
-          points2[dataIndex][axisIndex] = isValidPoint(point) ? point : getValueMissingPoint(coordSys);
-        });
-      });
-      data.each(function(idx) {
-        var firstPoint = find(points2[idx], function(point) {
-          return isValidPoint(point);
-        }) || getValueMissingPoint(coordSys);
-        points2[idx].push(firstPoint.slice());
-        data.setItemLayout(idx, points2[idx]);
-      });
-    });
-  }
-  function isValidPoint(point) {
-    return !isNaN(point[0]) && !isNaN(point[1]);
-  }
-  function getValueMissingPoint(coordSys) {
-    return [coordSys.cx, coordSys.cy];
-  }
-
-  // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/chart/radar/backwardCompat.js
-  function radarBackwardCompat(option) {
-    var polarOptArr = option.polar;
-    if (polarOptArr) {
-      if (!isArray(polarOptArr)) {
-        polarOptArr = [polarOptArr];
-      }
-      var polarNotRadar_1 = [];
-      each(polarOptArr, function(polarOpt, idx) {
-        if (polarOpt.indicator) {
-          if (polarOpt.type && !polarOpt.shape) {
-            polarOpt.shape = polarOpt.type;
-          }
-          option.radar = option.radar || [];
-          if (!isArray(option.radar)) {
-            option.radar = [option.radar];
-          }
-          option.radar.push(polarOpt);
-        } else {
-          polarNotRadar_1.push(polarOpt);
-        }
-      });
-      option.polar = polarNotRadar_1;
-    }
-    each(option.series, function(seriesOpt) {
-      if (seriesOpt && seriesOpt.type === "radar" && seriesOpt.polarIndex) {
-        seriesOpt.radarIndex = seriesOpt.polarIndex;
-      }
-    });
-  }
-
-  // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/chart/radar/RadarView.js
-  var RadarView = (
-    /** @class */
-    (function(_super) {
-      __extends(RadarView3, _super);
-      function RadarView3() {
-        var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.type = RadarView3.type;
-        return _this;
-      }
-      RadarView3.prototype.render = function(seriesModel, ecModel, api) {
-        var polar = seriesModel.coordinateSystem;
-        var group = this.group;
-        var data = seriesModel.getData();
-        var oldData = this._data;
-        function createSymbol3(data2, idx) {
-          var symbolType = data2.getItemVisual(idx, "symbol") || "circle";
-          if (symbolType === "none") {
-            return;
-          }
-          var symbolSize = normalizeSymbolSize(data2.getItemVisual(idx, "symbolSize"));
-          var symbolPath = createSymbol(symbolType, -1, -1, 2, 2);
-          var symbolRotate = data2.getItemVisual(idx, "symbolRotate") || 0;
-          symbolPath.attr({
-            style: {
-              strokeNoScale: true
-            },
-            z2: 100,
-            scaleX: symbolSize[0] / 2,
-            scaleY: symbolSize[1] / 2,
-            rotation: symbolRotate * Math.PI / 180 || 0
-          });
-          return symbolPath;
-        }
-        function updateSymbols(oldPoints, newPoints, symbolGroup, data2, idx, isInit) {
-          symbolGroup.removeAll();
-          for (var i = 0; i < newPoints.length - 1; i++) {
-            var symbolPath = createSymbol3(data2, idx);
-            if (symbolPath) {
-              symbolPath.__dimIdx = i;
-              if (oldPoints[i]) {
-                symbolPath.setPosition(oldPoints[i]);
-                graphic_exports[isInit ? "initProps" : "updateProps"](symbolPath, {
-                  x: newPoints[i][0],
-                  y: newPoints[i][1]
-                }, seriesModel, idx);
-              } else {
-                symbolPath.setPosition(newPoints[i]);
-              }
-              symbolGroup.add(symbolPath);
-            }
-          }
-        }
-        function getInitialPoints(points2) {
-          return map(points2, function(pt) {
-            return [polar.cx, polar.cy];
-          });
-        }
-        data.diff(oldData).add(function(idx) {
-          var points2 = data.getItemLayout(idx);
-          if (!points2) {
-            return;
-          }
-          var polygon = new Polygon_default();
-          var polyline = new Polyline_default();
-          var target = {
-            shape: {
-              points: points2
-            }
-          };
-          polygon.shape.points = getInitialPoints(points2);
-          polyline.shape.points = getInitialPoints(points2);
-          initProps(polygon, target, seriesModel, idx);
-          initProps(polyline, target, seriesModel, idx);
-          var itemGroup = new Group_default();
-          var symbolGroup = new Group_default();
-          itemGroup.add(polyline);
-          itemGroup.add(polygon);
-          itemGroup.add(symbolGroup);
-          updateSymbols(polyline.shape.points, points2, symbolGroup, data, idx, true);
-          data.setItemGraphicEl(idx, itemGroup);
-        }).update(function(newIdx, oldIdx) {
-          var itemGroup = oldData.getItemGraphicEl(oldIdx);
-          var polyline = itemGroup.childAt(0);
-          var polygon = itemGroup.childAt(1);
-          var symbolGroup = itemGroup.childAt(2);
-          var target = {
-            shape: {
-              points: data.getItemLayout(newIdx)
-            }
-          };
-          if (!target.shape.points) {
-            return;
-          }
-          updateSymbols(polyline.shape.points, target.shape.points, symbolGroup, data, newIdx, false);
-          saveOldStyle(polygon);
-          saveOldStyle(polyline);
-          updateProps(polyline, target, seriesModel);
-          updateProps(polygon, target, seriesModel);
-          data.setItemGraphicEl(newIdx, itemGroup);
-        }).remove(function(idx) {
-          group.remove(oldData.getItemGraphicEl(idx));
-        }).execute();
-        data.eachItemGraphicEl(function(itemGroup, idx) {
-          var itemModel = data.getItemModel(idx);
-          var polyline = itemGroup.childAt(0);
-          var polygon = itemGroup.childAt(1);
-          var symbolGroup = itemGroup.childAt(2);
-          var itemStyle = data.getItemVisual(idx, "style");
-          var color = itemStyle.fill;
-          group.add(itemGroup);
-          polyline.useStyle(defaults(itemModel.getModel("lineStyle").getLineStyle(), {
-            fill: "none",
-            stroke: color
-          }));
-          setStatesStylesFromModel(polyline, itemModel, "lineStyle");
-          setStatesStylesFromModel(polygon, itemModel, "areaStyle");
-          var areaStyleModel = itemModel.getModel("areaStyle");
-          var polygonIgnore = areaStyleModel.isEmpty() && areaStyleModel.parentModel.isEmpty();
-          polygon.ignore = polygonIgnore;
-          each(["emphasis", "select", "blur"], function(stateName) {
-            var stateModel = itemModel.getModel([stateName, "areaStyle"]);
-            var stateIgnore = stateModel.isEmpty() && stateModel.parentModel.isEmpty();
-            polygon.ensureState(stateName).ignore = stateIgnore && polygonIgnore;
-          });
-          polygon.useStyle(defaults(areaStyleModel.getAreaStyle(), {
-            fill: color,
-            opacity: 0.7,
-            decal: itemStyle.decal
-          }));
-          var emphasisModel = itemModel.getModel("emphasis");
-          var itemHoverStyle = emphasisModel.getModel("itemStyle").getItemStyle();
-          symbolGroup.eachChild(function(symbolPath) {
-            if (symbolPath instanceof Image_default) {
-              var pathStyle = symbolPath.style;
-              symbolPath.useStyle(extend({
-                // TODO other properties like x, y ?
-                image: pathStyle.image,
-                x: pathStyle.x,
-                y: pathStyle.y,
-                width: pathStyle.width,
-                height: pathStyle.height
-              }, itemStyle));
-            } else {
-              symbolPath.useStyle(itemStyle);
-              symbolPath.setColor(color);
-              symbolPath.style.strokeNoScale = true;
-            }
-            var pathEmphasisState = symbolPath.ensureState("emphasis");
-            pathEmphasisState.style = clone(itemHoverStyle);
-            var defaultText = data.getStore().get(data.getDimensionIndex(symbolPath.__dimIdx), idx);
-            (defaultText == null || isNaN(defaultText)) && (defaultText = "");
-            setLabelStyle(symbolPath, getLabelStatesModels(itemModel), {
-              labelFetcher: data.hostModel,
-              labelDataIndex: idx,
-              labelDimIndex: symbolPath.__dimIdx,
-              defaultText,
-              inheritColor: color,
-              defaultOpacity: itemStyle.opacity
-            });
-          });
-          toggleHoverEmphasis(itemGroup, emphasisModel.get("focus"), emphasisModel.get("blurScope"), emphasisModel.get("disabled"));
-        });
-        this._data = data;
-      };
-      RadarView3.prototype.remove = function() {
-        this.group.removeAll();
-        this._data = null;
-      };
-      RadarView3.type = "radar";
-      return RadarView3;
-    })(Chart_default)
-  );
-  var RadarView_default = RadarView;
-
-  // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/chart/radar/RadarSeries.js
-  var RadarSeriesModel = (
-    /** @class */
-    (function(_super) {
-      __extends(RadarSeriesModel2, _super);
-      function RadarSeriesModel2() {
-        var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.type = RadarSeriesModel2.type;
-        _this.hasSymbolVisual = true;
-        return _this;
-      }
-      RadarSeriesModel2.prototype.init = function(option) {
-        _super.prototype.init.apply(this, arguments);
-        this.legendVisualProvider = new LegendVisualProvider_default(bind(this.getData, this), bind(this.getRawData, this));
-      };
-      RadarSeriesModel2.prototype.getInitialData = function(option, ecModel) {
-        return createSeriesDataSimply(this, {
-          generateCoord: "indicator_",
-          generateCoordCount: Infinity
-        });
-      };
-      RadarSeriesModel2.prototype.formatTooltip = function(dataIndex, multipleSeries, dataType) {
-        var data = this.getData();
-        var coordSys = this.coordinateSystem;
-        var indicatorAxes = coordSys.getIndicatorAxes();
-        var name = this.getData().getName(dataIndex);
-        var nameToDisplay = name === "" ? this.name : name;
-        var markerColor = retrieveVisualColorForTooltipMarker(this, dataIndex);
-        return createTooltipMarkup("section", {
-          header: nameToDisplay,
-          sortBlocks: true,
-          blocks: map(indicatorAxes, function(axis) {
-            var val = data.get(data.mapDimension(axis.dim), dataIndex);
-            return createTooltipMarkup("nameValue", {
-              markerType: "subItem",
-              markerColor,
-              name: axis.name,
-              value: val,
-              sortParam: val
-            });
-          })
-        });
-      };
-      RadarSeriesModel2.prototype.getTooltipPosition = function(dataIndex) {
-        if (dataIndex != null) {
-          var data_1 = this.getData();
-          var coordSys = this.coordinateSystem;
-          var values = data_1.getValues(map(coordSys.dimensions, function(dim) {
-            return data_1.mapDimension(dim);
-          }), dataIndex);
-          for (var i = 0, len2 = values.length; i < len2; i++) {
-            if (!isNaN(values[i])) {
-              var indicatorAxes = coordSys.getIndicatorAxes();
-              return coordSys.coordToPoint(indicatorAxes[i].dataToCoord(values[i]), i);
-            }
-          }
-        }
-      };
-      RadarSeriesModel2.type = "series.radar";
-      RadarSeriesModel2.dependencies = ["radar"];
-      RadarSeriesModel2.defaultOption = {
-        // zlevel: 0,
-        z: 2,
-        colorBy: "data",
-        coordinateSystem: "radar",
-        legendHoverLink: true,
-        radarIndex: 0,
-        lineStyle: {
-          width: 2,
-          type: "solid",
-          join: "round"
-        },
-        label: {
-          position: "top"
-        },
-        // areaStyle: {
-        // },
-        // itemStyle: {}
-        symbolSize: 8
-        // symbolRotate: null
-      };
-      return RadarSeriesModel2;
-    })(Series_default)
-  );
-  var RadarSeries_default = RadarSeriesModel;
-
-  // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/coord/radar/RadarModel.js
-  var valueAxisDefault = axisDefault_default.value;
-  function defaultsShow(opt, show) {
-    return defaults({
-      show
-    }, opt);
-  }
-  var RadarModel = (
-    /** @class */
-    (function(_super) {
-      __extends(RadarModel2, _super);
-      function RadarModel2() {
-        var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.type = RadarModel2.type;
-        return _this;
-      }
-      RadarModel2.prototype.optionUpdated = function() {
-        var boundaryGap = this.get("boundaryGap");
-        var splitNumber = this.get("splitNumber");
-        var scale4 = this.get("scale");
-        var axisLine = this.get("axisLine");
-        var axisTick = this.get("axisTick");
-        var axisLabel = this.get("axisLabel");
-        var nameTextStyle = this.get("axisName");
-        var showName = this.get(["axisName", "show"]);
-        var nameFormatter = this.get(["axisName", "formatter"]);
-        var nameGap = this.get("axisNameGap");
-        var triggerEvent = this.get("triggerEvent");
-        var indicatorModels = map(this.get("indicator") || [], function(indicatorOpt) {
-          if (indicatorOpt.max != null && indicatorOpt.max > 0 && !indicatorOpt.min) {
-            indicatorOpt.min = 0;
-          } else if (indicatorOpt.min != null && indicatorOpt.min < 0 && !indicatorOpt.max) {
-            indicatorOpt.max = 0;
-          }
-          var iNameTextStyle = nameTextStyle;
-          if (indicatorOpt.color != null) {
-            iNameTextStyle = defaults({
-              color: indicatorOpt.color
-            }, nameTextStyle);
-          }
-          var innerIndicatorOpt = merge(clone(indicatorOpt), {
-            boundaryGap,
-            splitNumber,
-            scale: scale4,
-            axisLine,
-            axisTick,
-            // axisType: axisType,
-            axisLabel,
-            // Compatible with 2 and use text
-            name: indicatorOpt.text,
-            showName,
-            nameLocation: "end",
-            nameGap,
-            // min: 0,
-            nameTextStyle: iNameTextStyle,
-            triggerEvent
-          }, false);
-          if (isString(nameFormatter)) {
-            var indName = innerIndicatorOpt.name;
-            innerIndicatorOpt.name = nameFormatter.replace("{value}", indName != null ? indName : "");
-          } else if (isFunction(nameFormatter)) {
-            innerIndicatorOpt.name = nameFormatter(innerIndicatorOpt.name, innerIndicatorOpt);
-          }
-          var model = new Model_default(innerIndicatorOpt, null, this.ecModel);
-          mixin(model, AxisModelCommonMixin.prototype);
-          model.mainType = "radar";
-          model.componentIndex = this.componentIndex;
-          return model;
-        }, this);
-        this._indicatorModels = indicatorModels;
-      };
-      RadarModel2.prototype.getIndicatorModels = function() {
-        return this._indicatorModels;
-      };
-      RadarModel2.type = "radar";
-      RadarModel2.defaultOption = {
-        // zlevel: 0,
-        z: 0,
-        center: ["50%", "50%"],
-        radius: "75%",
-        startAngle: 90,
-        axisName: {
-          show: true
-          // formatter: null
-          // textStyle: {}
-        },
-        boundaryGap: [0, 0],
-        splitNumber: 5,
-        axisNameGap: 15,
-        scale: false,
-        // Polygon or circle
-        shape: "polygon",
-        axisLine: merge({
-          lineStyle: {
-            color: "#bbb"
-          }
-        }, valueAxisDefault.axisLine),
-        axisLabel: defaultsShow(valueAxisDefault.axisLabel, false),
-        axisTick: defaultsShow(valueAxisDefault.axisTick, false),
-        // axisType: 'value',
-        splitLine: defaultsShow(valueAxisDefault.splitLine, true),
-        splitArea: defaultsShow(valueAxisDefault.splitArea, true),
-        // {text, min, max}
-        indicator: []
-      };
-      return RadarModel2;
-    })(Component_default)
-  );
-  var RadarModel_default = RadarModel;
-
-  // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/component/radar/RadarView.js
-  var axisBuilderAttrs2 = ["axisLine", "axisTickLabel", "axisName"];
-  var RadarView2 = (
-    /** @class */
-    (function(_super) {
-      __extends(RadarView3, _super);
-      function RadarView3() {
-        var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.type = RadarView3.type;
-        return _this;
-      }
-      RadarView3.prototype.render = function(radarModel, ecModel, api) {
-        var group = this.group;
-        group.removeAll();
-        this._buildAxes(radarModel);
-        this._buildSplitLineAndArea(radarModel);
-      };
-      RadarView3.prototype._buildAxes = function(radarModel) {
-        var radar = radarModel.coordinateSystem;
-        var indicatorAxes = radar.getIndicatorAxes();
-        var axisBuilders = map(indicatorAxes, function(indicatorAxis) {
-          var axisName = indicatorAxis.model.get("showName") ? indicatorAxis.name : "";
-          var axisBuilder = new AxisBuilder_default(indicatorAxis.model, {
-            axisName,
-            position: [radar.cx, radar.cy],
-            rotation: indicatorAxis.angle,
-            labelDirection: -1,
-            tickDirection: -1,
-            nameDirection: 1
-          });
-          return axisBuilder;
-        });
-        each(axisBuilders, function(axisBuilder) {
-          each(axisBuilderAttrs2, axisBuilder.add, axisBuilder);
-          this.group.add(axisBuilder.getGroup());
-        }, this);
-      };
-      RadarView3.prototype._buildSplitLineAndArea = function(radarModel) {
-        var radar = radarModel.coordinateSystem;
-        var indicatorAxes = radar.getIndicatorAxes();
-        if (!indicatorAxes.length) {
-          return;
-        }
-        var shape = radarModel.get("shape");
-        var splitLineModel = radarModel.getModel("splitLine");
-        var splitAreaModel = radarModel.getModel("splitArea");
-        var lineStyleModel = splitLineModel.getModel("lineStyle");
-        var areaStyleModel = splitAreaModel.getModel("areaStyle");
-        var showSplitLine = splitLineModel.get("show");
-        var showSplitArea = splitAreaModel.get("show");
-        var splitLineColors = lineStyleModel.get("color");
-        var splitAreaColors = areaStyleModel.get("color");
-        var splitLineColorsArr = isArray(splitLineColors) ? splitLineColors : [splitLineColors];
-        var splitAreaColorsArr = isArray(splitAreaColors) ? splitAreaColors : [splitAreaColors];
-        var splitLines = [];
-        var splitAreas = [];
-        function getColorIndex(areaOrLine, areaOrLineColorList, idx) {
-          var colorIndex2 = idx % areaOrLineColorList.length;
-          areaOrLine[colorIndex2] = areaOrLine[colorIndex2] || [];
-          return colorIndex2;
-        }
-        if (shape === "circle") {
-          var ticksRadius = indicatorAxes[0].getTicksCoords();
-          var cx = radar.cx;
-          var cy = radar.cy;
-          for (var i = 0; i < ticksRadius.length; i++) {
-            if (showSplitLine) {
-              var colorIndex = getColorIndex(splitLines, splitLineColorsArr, i);
-              splitLines[colorIndex].push(new Circle_default({
-                shape: {
-                  cx,
-                  cy,
-                  r: ticksRadius[i].coord
-                }
-              }));
-            }
-            if (showSplitArea && i < ticksRadius.length - 1) {
-              var colorIndex = getColorIndex(splitAreas, splitAreaColorsArr, i);
-              splitAreas[colorIndex].push(new Ring_default({
-                shape: {
-                  cx,
-                  cy,
-                  r0: ticksRadius[i].coord,
-                  r: ticksRadius[i + 1].coord
-                }
-              }));
-            }
-          }
-        } else {
-          var realSplitNumber_1;
-          var axesTicksPoints = map(indicatorAxes, function(indicatorAxis, idx) {
-            var ticksCoords = indicatorAxis.getTicksCoords();
-            realSplitNumber_1 = realSplitNumber_1 == null ? ticksCoords.length - 1 : Math.min(ticksCoords.length - 1, realSplitNumber_1);
-            return map(ticksCoords, function(tickCoord) {
-              return radar.coordToPoint(tickCoord.coord, idx);
-            });
-          });
-          var prevPoints = [];
-          for (var i = 0; i <= realSplitNumber_1; i++) {
-            var points2 = [];
-            for (var j = 0; j < indicatorAxes.length; j++) {
-              points2.push(axesTicksPoints[j][i]);
-            }
-            if (points2[0]) {
-              points2.push(points2[0].slice());
-            } else {
-              if (true) {
-                console.error("Can't draw value axis " + i);
-              }
-            }
-            if (showSplitLine) {
-              var colorIndex = getColorIndex(splitLines, splitLineColorsArr, i);
-              splitLines[colorIndex].push(new Polyline_default({
-                shape: {
-                  points: points2
-                }
-              }));
-            }
-            if (showSplitArea && prevPoints) {
-              var colorIndex = getColorIndex(splitAreas, splitAreaColorsArr, i - 1);
-              splitAreas[colorIndex].push(new Polygon_default({
-                shape: {
-                  points: points2.concat(prevPoints)
-                }
-              }));
-            }
-            prevPoints = points2.slice().reverse();
-          }
-        }
-        var lineStyle = lineStyleModel.getLineStyle();
-        var areaStyle = areaStyleModel.getAreaStyle();
-        each(splitAreas, function(splitAreas2, idx) {
-          this.group.add(mergePath2(splitAreas2, {
-            style: defaults({
-              stroke: "none",
-              fill: splitAreaColorsArr[idx % splitAreaColorsArr.length]
-            }, areaStyle),
-            silent: true
-          }));
-        }, this);
-        each(splitLines, function(splitLines2, idx) {
-          this.group.add(mergePath2(splitLines2, {
-            style: defaults({
-              fill: "none",
-              stroke: splitLineColorsArr[idx % splitLineColorsArr.length]
-            }, lineStyle),
-            silent: true
-          }));
-        }, this);
-      };
-      RadarView3.type = "radar";
-      return RadarView3;
-    })(Component_default2)
-  );
-  var RadarView_default2 = RadarView2;
-
-  // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/coord/radar/IndicatorAxis.js
-  var IndicatorAxis = (
-    /** @class */
-    (function(_super) {
-      __extends(IndicatorAxis2, _super);
-      function IndicatorAxis2(dim, scale4, radiusExtent) {
-        var _this = _super.call(this, dim, scale4, radiusExtent) || this;
-        _this.type = "value";
-        _this.angle = 0;
-        _this.name = "";
-        return _this;
-      }
-      return IndicatorAxis2;
-    })(Axis_default)
-  );
-  var IndicatorAxis_default = IndicatorAxis;
-
-  // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/coord/radar/Radar.js
-  var Radar = (
-    /** @class */
-    (function() {
-      function Radar2(radarModel, ecModel, api) {
-        this.dimensions = [];
-        this._model = radarModel;
-        this._indicatorAxes = map(radarModel.getIndicatorModels(), function(indicatorModel, idx) {
-          var dim = "indicator_" + idx;
-          var indicatorAxis = new IndicatorAxis_default(
-            dim,
-            new Interval_default()
-            // (indicatorModel.get('axisType') === 'log') ? new LogScale() : new IntervalScale()
-          );
-          indicatorAxis.name = indicatorModel.get("name");
-          indicatorAxis.model = indicatorModel;
-          indicatorModel.axis = indicatorAxis;
-          this.dimensions.push(dim);
-          return indicatorAxis;
-        }, this);
-        this.resize(radarModel, api);
-      }
-      Radar2.prototype.getIndicatorAxes = function() {
-        return this._indicatorAxes;
-      };
-      Radar2.prototype.dataToPoint = function(value, indicatorIndex) {
-        var indicatorAxis = this._indicatorAxes[indicatorIndex];
-        return this.coordToPoint(indicatorAxis.dataToCoord(value), indicatorIndex);
-      };
-      Radar2.prototype.coordToPoint = function(coord, indicatorIndex) {
-        var indicatorAxis = this._indicatorAxes[indicatorIndex];
-        var angle = indicatorAxis.angle;
-        var x = this.cx + coord * Math.cos(angle);
-        var y = this.cy - coord * Math.sin(angle);
-        return [x, y];
-      };
-      Radar2.prototype.pointToData = function(pt) {
-        var dx = pt[0] - this.cx;
-        var dy = pt[1] - this.cy;
-        var radius = Math.sqrt(dx * dx + dy * dy);
-        dx /= radius;
-        dy /= radius;
-        var radian = Math.atan2(-dy, dx);
-        var minRadianDiff = Infinity;
-        var closestAxis;
-        var closestAxisIdx = -1;
-        for (var i = 0; i < this._indicatorAxes.length; i++) {
-          var indicatorAxis = this._indicatorAxes[i];
-          var diff = Math.abs(radian - indicatorAxis.angle);
-          if (diff < minRadianDiff) {
-            closestAxis = indicatorAxis;
-            closestAxisIdx = i;
-            minRadianDiff = diff;
-          }
-        }
-        return [closestAxisIdx, +(closestAxis && closestAxis.coordToData(radius))];
-      };
-      Radar2.prototype.resize = function(radarModel, api) {
-        var center2 = radarModel.get("center");
-        var viewWidth = api.getWidth();
-        var viewHeight = api.getHeight();
-        var viewSize = Math.min(viewWidth, viewHeight) / 2;
-        this.cx = parsePercent2(center2[0], viewWidth);
-        this.cy = parsePercent2(center2[1], viewHeight);
-        this.startAngle = radarModel.get("startAngle") * Math.PI / 180;
-        var radius = radarModel.get("radius");
-        if (isString(radius) || isNumber(radius)) {
-          radius = [0, radius];
-        }
-        this.r0 = parsePercent2(radius[0], viewSize);
-        this.r = parsePercent2(radius[1], viewSize);
-        each(this._indicatorAxes, function(indicatorAxis, idx) {
-          indicatorAxis.setExtent(this.r0, this.r);
-          var angle = this.startAngle + idx * Math.PI * 2 / this._indicatorAxes.length;
-          angle = Math.atan2(Math.sin(angle), Math.cos(angle));
-          indicatorAxis.angle = angle;
-        }, this);
-      };
-      Radar2.prototype.update = function(ecModel, api) {
-        var indicatorAxes = this._indicatorAxes;
-        var radarModel = this._model;
-        each(indicatorAxes, function(indicatorAxis) {
-          indicatorAxis.scale.setExtent(Infinity, -Infinity);
-        });
-        ecModel.eachSeriesByType("radar", function(radarSeries, idx) {
-          if (radarSeries.get("coordinateSystem") !== "radar" || ecModel.getComponent("radar", radarSeries.get("radarIndex")) !== radarModel) {
-            return;
-          }
-          var data = radarSeries.getData();
-          each(indicatorAxes, function(indicatorAxis) {
-            indicatorAxis.scale.unionExtentFromData(data, data.mapDimension(indicatorAxis.dim));
-          });
-        }, this);
-        var splitNumber = radarModel.get("splitNumber");
-        var dummyScale = new Interval_default();
-        dummyScale.setExtent(0, splitNumber);
-        dummyScale.setInterval(1);
-        each(indicatorAxes, function(indicatorAxis, idx) {
-          alignScaleTicks(indicatorAxis.scale, indicatorAxis.model, dummyScale);
-        });
-      };
-      Radar2.prototype.convertToPixel = function(ecModel, finder, value) {
-        console.warn("Not implemented.");
-        return null;
-      };
-      Radar2.prototype.convertFromPixel = function(ecModel, finder, pixel) {
-        console.warn("Not implemented.");
-        return null;
-      };
-      Radar2.prototype.containPoint = function(point) {
-        console.warn("Not implemented.");
-        return false;
-      };
-      Radar2.create = function(ecModel, api) {
-        var radarList = [];
-        ecModel.eachComponent("radar", function(radarModel) {
-          var radar = new Radar2(radarModel, ecModel, api);
-          radarList.push(radar);
-          radarModel.coordinateSystem = radar;
-        });
-        ecModel.eachSeriesByType("radar", function(radarSeries) {
-          if (radarSeries.get("coordinateSystem") === "radar") {
-            radarSeries.coordinateSystem = radarList[radarSeries.get("radarIndex") || 0];
-          }
-        });
-        return radarList;
-      };
-      Radar2.dimensions = [];
-      return Radar2;
-    })()
-  );
-  var Radar_default = Radar;
-
-  // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/component/radar/install.js
-  function install5(registers) {
-    registers.registerCoordinateSystem("radar", Radar_default);
-    registers.registerComponentModel(RadarModel_default);
-    registers.registerComponentView(RadarView_default2);
-    registers.registerVisual({
-      seriesType: "radar",
-      reset: function(seriesModel) {
-        var data = seriesModel.getData();
-        data.each(function(idx) {
-          data.setItemVisual(idx, "legendIcon", "roundRect");
-        });
-        data.setVisual("legendIcon", "roundRect");
-      }
-    });
-  }
-
-  // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/chart/radar/install.js
-  function install6(registers) {
-    use(install5);
-    registers.registerChartView(RadarView_default);
-    registers.registerSeriesModel(RadarSeries_default);
-    registers.registerLayout(radarLayout);
-    registers.registerProcessor(dataFilter("radar"));
-    registers.registerPreprocessor(radarBackwardCompat);
-  }
-
   // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/component/helper/interactionMutex.js
   var ATTR = "\0_ec_interaction_mutex";
   function isTaken(zr, resourceKey) {
@@ -38036,7 +37258,7 @@
     event: "graphRoam",
     update: "none"
   };
-  function install7(registers) {
+  function install5(registers) {
     registers.registerChartView(GraphView_default);
     registers.registerSeriesModel(GraphSeries_default);
     registers.registerProcessor(categoryFilter);
@@ -39103,7 +38325,7 @@
   }
 
   // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/component/axisPointer/install.js
-  function install8(registers) {
+  function install6(registers) {
     AxisView_default.registerAxisPointerClass("CartesianAxisPointer", CartesianAxisPointer_default);
     registers.registerComponentModel(AxisPointerModel_default);
     registers.registerComponentView(AxisPointerView_default);
@@ -39127,9 +38349,9 @@
   }
 
   // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/component/grid/install.js
-  function install9(registers) {
+  function install7(registers) {
     use(install4);
-    use(install8);
+    use(install6);
   }
 
   // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/component/helper/listComponent.js
@@ -40378,8 +39600,8 @@
   var TooltipView_default = TooltipView;
 
   // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/component/tooltip/install.js
-  function install10(registers) {
-    use(install8);
+  function install8(registers) {
+    use(install6);
     registers.registerComponentModel(TooltipModel_default);
     registers.registerComponentView(TooltipView_default);
     registers.registerAction({
@@ -40561,7 +39783,7 @@
       return TitleView2;
     })(Component_default2)
   );
-  function install11(registers) {
+  function install9(registers) {
     registers.registerComponentModel(TitleModel);
     registers.registerComponentView(TitleView);
   }
@@ -41305,7 +40527,7 @@
   }
 
   // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/component/legend/installLegendPlain.js
-  function install12(registers) {
+  function install10(registers) {
     registers.registerComponentModel(LegendModel_default);
     registers.registerComponentView(LegendView_default);
     registers.registerProcessor(registers.PRIORITY.PROCESSOR.SERIES_FILTER, legendFilter);
@@ -41689,17 +40911,17 @@
   }
 
   // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/component/legend/installLegendScroll.js
-  function install13(registers) {
-    use(install12);
+  function install11(registers) {
+    use(install10);
     registers.registerComponentModel(ScrollableLegendModel_default);
     registers.registerComponentView(ScrollableLegendView_default);
     installScrollableLegendAction(registers);
   }
 
   // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/component/legend/install.js
-  function install14(registers) {
-    use(install12);
-    use(install13);
+  function install12(registers) {
+    use(install10);
+    use(install11);
   }
 
   // plugins-dev/robopi-plugins/plugins/wiki/node_modules/zrender/lib/canvas/Layer.js
@@ -42589,7 +41811,7 @@
   var Painter_default = CanvasPainter;
 
   // plugins-dev/robopi-plugins/plugins/wiki/node_modules/echarts/lib/renderer/installCanvasRenderer.js
-  function install15(registers) {
+  function install13(registers) {
     registers.registerPainter("canvas", Painter_default);
   }
 
@@ -42598,13 +41820,12 @@
     install2,
     install3,
     install,
+    install5,
     install7,
-    install6,
+    install8,
+    install12,
     install9,
-    install10,
-    install14,
-    install11,
-    install15
+    install13
   ]);
   var { useEffect, useRef } = window.React;
   function cssVar(name) {
@@ -42692,54 +41913,35 @@
     const api = window.robopiWorktable;
     api?.setPath("wiki", page === "dashboard" ? [] : [label]);
   }
+  var INDUSTRIAL = ["#3b82f6", "#64748b", "#0ea5e9", "#475569", "#94a3b8"];
   function AssetPieChart() {
     const option = {
       tooltip: { trigger: "item", ...TOOLTIP },
       series: [{
         type: "pie",
-        radius: ["46%", "72%"],
-        center: ["50%", "52%"],
-        itemStyle: { borderRadius: 4, borderColor: CHART_COLORS.bg, borderWidth: 2 },
-        label: { color: CHART_COLORS.textMuted, fontSize: 10 },
+        radius: ["48%", "68%"],
+        center: ["50%", "50%"],
+        itemStyle: { borderWidth: 0 },
+        label: { color: CHART_COLORS.textMuted, fontSize: 10, formatter: "{b} {d}%" },
+        labelLine: { lineStyle: { color: CHART_COLORS.border } },
         data: [
-          { name: "\u8D22\u52A1\u5236\u5EA6", value: 3, itemStyle: { color: CHART_COLORS.accent } },
-          { name: "\u4EBA\u529B\u8D44\u6E90", value: 1, itemStyle: { color: CHART_COLORS.green } },
-          { name: "\u7814\u53D1", value: 1, itemStyle: { color: CHART_COLORS.amber } },
-          { name: "\u901A\u7528", value: 1, itemStyle: { color: CHART_COLORS.violet } }
+          { name: "\u8D22\u52A1\u5236\u5EA6", value: 3, itemStyle: { color: INDUSTRIAL[0] } },
+          { name: "\u4EBA\u529B\u8D44\u6E90", value: 1, itemStyle: { color: INDUSTRIAL[1] } },
+          { name: "\u7814\u53D1", value: 1, itemStyle: { color: INDUSTRIAL[2] } },
+          { name: "\u901A\u7528", value: 1, itemStyle: { color: INDUSTRIAL[3] } }
         ]
       }]
     };
     return /* @__PURE__ */ window.React.createElement(EChart, { option, height: 170 });
   }
-  function QaQualityRadar() {
+  function QaQualityBars() {
     const metrics = [
       { name: "\u51C6\u786E\u7387", value: 92 },
       { name: "\u76F8\u5173\u6027", value: 86 },
       { name: "\u5B8C\u6574\u6027", value: 78 },
       { name: "\u5B9E\u6548\u6027", value: 95 }
     ];
-    const option = {
-      tooltip: { ...TOOLTIP },
-      radar: {
-        indicator: metrics.map((m2) => ({ name: m2.name, max: 100 })),
-        radius: "62%",
-        axisName: { color: CHART_COLORS.textMuted, fontSize: 10 },
-        splitLine: { lineStyle: { color: CHART_COLORS.border } },
-        splitArea: { areaStyle: { color: ["transparent", CHART_COLORS.bg] } },
-        axisLine: { lineStyle: { color: CHART_COLORS.border } }
-      },
-      series: [{
-        type: "radar",
-        data: [{
-          value: metrics.map((m2) => m2.value),
-          name: "\u95EE\u7B54\u8D28\u91CF",
-          areaStyle: { color: "color-mix(in srgb, var(--accent) 30%, transparent)" },
-          lineStyle: { color: CHART_COLORS.accent },
-          itemStyle: { color: CHART_COLORS.accent }
-        }]
-      }]
-    };
-    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ window.React.createElement(EChart, { option, height: 170 })), /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 } }, metrics.map((m2) => /* @__PURE__ */ window.React.createElement("div", { key: m2.name, style: { fontSize: 11 } }, /* @__PURE__ */ window.React.createElement("div", { style: { color: "var(--text-muted)" } }, m2.name), /* @__PURE__ */ window.React.createElement("div", { style: { fontWeight: 700, color: "var(--text)" } }, m2.value, /* @__PURE__ */ window.React.createElement("span", { style: { fontWeight: 400, color: "var(--text-dim)" } }, "%"))))));
+    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, paddingTop: 4 } }, metrics.map((m2) => /* @__PURE__ */ window.React.createElement("div", { key: m2.name, style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ window.React.createElement("span", { style: { width: 52, flexShrink: 0, fontSize: 11, color: "var(--text-muted)" } }, m2.name), /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, height: 8, borderRadius: 2, background: "var(--tool-bg)", border: `1px solid ${CHART_COLORS.border}`, overflow: "hidden" } }, /* @__PURE__ */ window.React.createElement("div", { style: { width: `${m2.value}%`, height: "100%", background: INDUSTRIAL[0] } })), /* @__PURE__ */ window.React.createElement("span", { style: { width: 40, flexShrink: 0, textAlign: "right", fontSize: 11, fontWeight: 600, color: "var(--text)", fontFamily: "var(--font-mono)" } }, m2.value, "%"))));
   }
   function ServicesStatus() {
     const services = [
@@ -42748,17 +41950,29 @@
       { name: "WebHook \u63A8\u9001", status: "\u8FD0\u884C\u4E2D", latency: "120ms", icon: "\u{1F4E1}" },
       { name: "\u6587\u6863\u5BFC\u51FA", status: "\u8FD0\u884C\u4E2D", latency: "\u2014", icon: "\u{1F4E4}" }
     ];
-    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, services.map((svc) => /* @__PURE__ */ window.React.createElement("div", { key: svc.name, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12 } }, /* @__PURE__ */ window.React.createElement("span", null, svc.icon), /* @__PURE__ */ window.React.createElement("span", { style: { flex: 1, color: "var(--text)", fontWeight: 500 } }, svc.name), /* @__PURE__ */ window.React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 5, color: "var(--text-muted)", fontSize: 10.5 } }, /* @__PURE__ */ window.React.createElement("span", { style: { width: 7, height: 7, borderRadius: "50%", background: CHART_COLORS.green, display: "inline-block" } }), svc.status), /* @__PURE__ */ window.React.createElement("span", { style: { color: "var(--text-dim)", fontSize: 10.5, fontFamily: "var(--font-mono)" } }, svc.latency))), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 10.5, color: "var(--text-dim)" } }, "\u6700\u8FD1\u68C0\u67E5\uFF1A\u521A\u521A \xB7 \u81EA\u52A8\u5237\u65B0"));
+    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, services.map((svc) => /* @__PURE__ */ window.React.createElement("div", { key: svc.name, style: { display: "flex", alignItems: "center", gap: 12, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12 } }, /* @__PURE__ */ window.React.createElement("span", { style: { width: 18, textAlign: "center" } }, svc.icon), /* @__PURE__ */ window.React.createElement("span", { style: { flex: 1, minWidth: 0, color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, svc.name), /* @__PURE__ */ window.React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6, color: "var(--text-muted)", fontSize: 10.5, width: 72, flexShrink: 0 } }, /* @__PURE__ */ window.React.createElement("span", { style: { width: 7, height: 7, borderRadius: "50%", background: CHART_COLORS.green, display: "inline-block", flexShrink: 0 } }), svc.status), /* @__PURE__ */ window.React.createElement("span", { style: { color: "var(--text-dim)", fontSize: 10.5, fontFamily: "var(--font-mono)", width: 52, textAlign: "right", flexShrink: 0 } }, svc.latency))), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 10.5, color: "var(--text-dim)" } }, "\u6700\u8FD1\u68C0\u67E5\uFF1A\u521A\u521A \xB7 \u81EA\u52A8\u5237\u65B0"));
   }
   function PipelineFlow() {
     const steps = [
-      { label: "\u91C7\u96C6", desc: "\u6587\u6863/\u7F51\u9875" },
-      { label: "\u6E05\u6D17", desc: "\u53BB\u91CD/\u683C\u5F0F\u5316" },
+      { label: "\u91C7\u96C6", desc: "\u6587\u6863 / \u7F51\u9875" },
+      { label: "\u6E05\u6D17", desc: "\u53BB\u91CD / \u683C\u5F0F\u5316" },
       { label: "\u5206\u5757", desc: "\u8BED\u4E49\u5207\u7247" },
       { label: "\u5411\u91CF\u5316", desc: "Embedding" },
       { label: "\u7D22\u5F15", desc: "\u5411\u91CF\u5E93" }
     ];
-    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", alignItems: "stretch", gap: 0 } }, steps.map((step, i) => /* @__PURE__ */ window.React.createElement("div", { key: step.label, style: { flex: 1, display: "flex", alignItems: "center", gap: 0 } }, /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, textAlign: "center", padding: "8px 6px", borderRadius: 8, border: `1px solid ${CHART_COLORS.border}`, background: "var(--bg)" } }, /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: "var(--text)" } }, step.label), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 10, color: "var(--text-dim)", marginTop: 2 } }, step.desc)), i < steps.length - 1 && /* @__PURE__ */ window.React.createElement("span", { style: { color: "var(--text-dim)", padding: "0 4px", fontSize: 12, flexShrink: 0 } }, "\u2192"))));
+    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", alignItems: "flex-start", padding: "6px 0 2px" } }, steps.map((step, i) => /* @__PURE__ */ window.React.createElement("div", { key: step.label, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 0 } }, /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", alignItems: "center", width: "100%", marginBottom: 8 } }, /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, height: 1, background: i === 0 ? "transparent" : CHART_COLORS.border } }), i > 0 && /* @__PURE__ */ window.React.createElement("svg", { width: "8", height: "8", viewBox: "0 0 8 8", style: { marginLeft: -8, flexShrink: 0 } }, /* @__PURE__ */ window.React.createElement("path", { d: "M0 1 L7 4 L0 7 Z", fill: CHART_COLORS.textDim })), i < steps.length - 1 && /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, height: 1, background: CHART_COLORS.border } })), /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4 } }, /* @__PURE__ */ window.React.createElement("div", { style: {
+      width: 26,
+      height: 26,
+      borderRadius: "50%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "color-mix(in srgb, var(--accent) 8%, var(--bg))",
+      border: `1px solid ${INDUSTRIAL[0]}`,
+      fontSize: 11,
+      fontWeight: 600,
+      color: INDUSTRIAL[0]
+    } }, i + 1), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap" } }, step.label), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 10, color: "var(--text-dim)", whiteSpace: "nowrap" } }, step.desc)))));
   }
   function RecentDocs() {
     const docs = [
@@ -42768,7 +41982,7 @@
       { id: "4", title: "\u5DEE\u65C5\u6807\u51C6\u4E0E\u62A5\u9500", space: "\u8D22\u52A1\u5236\u5EA6", updated: "\u6628\u5929", status: "\u5DF2\u7D22\u5F15" }
     ];
     const statusColor = (status) => status === "\u5DF2\u7D22\u5F15" ? CHART_COLORS.green : CHART_COLORS.amber;
-    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, docs.map((doc) => /* @__PURE__ */ window.React.createElement("div", { key: doc.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12 } }, /* @__PURE__ */ window.React.createElement("span", { style: { color: "var(--text-muted)" } }, /* @__PURE__ */ window.React.createElement(FileIcon, null)), /* @__PURE__ */ window.React.createElement("span", { style: { flex: 1, color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, doc.title), /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 10, color: "var(--text-dim)" } }, doc.space), /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 10, padding: "1px 7px", borderRadius: 4, color: "#fff", background: statusColor(doc.status), flexShrink: 0 } }, doc.status), /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 10, color: "var(--text-dim)", flexShrink: 0 } }, doc.updated))));
+    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, docs.map((doc) => /* @__PURE__ */ window.React.createElement("div", { key: doc.id, style: { display: "flex", alignItems: "center", gap: 12, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12 } }, /* @__PURE__ */ window.React.createElement("span", { style: { width: 18, textAlign: "center", color: "var(--text-muted)" } }, /* @__PURE__ */ window.React.createElement(FileIcon, null)), /* @__PURE__ */ window.React.createElement("span", { style: { flex: 1, minWidth: 0, color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, doc.title), /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 10, color: "var(--text-dim)", width: 56, flexShrink: 0, textAlign: "right" } }, doc.space), /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 10, padding: "1px 7px", borderRadius: 3, color: "#fff", background: statusColor(doc.status), flexShrink: 0, textAlign: "center" } }, doc.status), /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 10, color: "var(--text-dim)", width: 64, flexShrink: 0, textAlign: "right" } }, doc.updated))));
   }
   function GraphPreview() {
     const nodes = [
@@ -42796,9 +42010,9 @@
         roam: true,
         draggable: true,
         label: { show: true, fontSize: 9, color: CHART_COLORS.textMuted, position: "bottom" },
-        lineStyle: { color: CHART_COLORS.border, width: 1.2, curveness: 0.1 },
-        emphasis: { focus: "adjacency", lineStyle: { width: 2, color: CHART_COLORS.accent } },
-        force: { repulsion: 120, edgeLength: 70 },
+        lineStyle: { color: CHART_COLORS.border, width: 1, curveness: 0.1 },
+        emphasis: { focus: "adjacency", lineStyle: { width: 1.5, color: INDUSTRIAL[0] } },
+        force: { repulsion: 100, edgeLength: 65 },
         data: nodes,
         links
       }]
@@ -42809,7 +42023,7 @@
     return /* @__PURE__ */ window.React.createElement("div", { style: { padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)" } }, /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 } }, /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "var(--text-muted)" } }, title), extra), children);
   }
   function DashboardPage() {
-    return /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" } }, /* @__PURE__ */ window.React.createElement("div", null, /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "var(--text)" } }, /* @__PURE__ */ window.React.createElement("span", { style: { verticalAlign: -2, marginRight: 6, color: "var(--accent)" } }, /* @__PURE__ */ window.React.createElement(WikiIcon, null)), "\u77E5\u8BC6\u5E93\u4E3B\u9875"), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 4 } }, "\u77E5\u8BC6\u8D44\u4EA7 \xB7 \u95EE\u7B54\u8D28\u91CF \xB7 \u670D\u52A1\u72B6\u6001 \xB7 \u6784\u5EFA\u6D41\u6C34\u7EBF \xB7 \u77E5\u8BC6\u56FE\u8C31\uFF08mock \u6570\u636E\uFF09")), /* @__PURE__ */ window.React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 } }, /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u77E5\u8BC6\u8D44\u4EA7\u6784\u6210" }, /* @__PURE__ */ window.React.createElement(AssetPieChart, null)), /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u95EE\u7B54\u8D28\u91CF\u8BC4\u4F30" }, /* @__PURE__ */ window.React.createElement(QaQualityRadar, null))), /* @__PURE__ */ window.React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 } }, /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u8F93\u51FA\u4E0E\u670D\u52A1 \xB7 \u670D\u52A1\u8FD0\u884C\u72B6\u6001", extra: /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 10, color: CHART_COLORS.green } }, "\u25CF \u5B9E\u65F6") }, /* @__PURE__ */ window.React.createElement(ServicesStatus, null)), /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u77E5\u8BC6\u6784\u5EFA\u6D41\u6C34\u7EBF" }, /* @__PURE__ */ window.React.createElement(PipelineFlow, null))), /* @__PURE__ */ window.React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 } }, /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u6700\u8FD1\u6587\u6863" }, /* @__PURE__ */ window.React.createElement(RecentDocs, null)), /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u77E5\u8BC6\u56FE\u8C31\u9884\u89C8" }, /* @__PURE__ */ window.React.createElement(GraphPreview, null))));
+    return /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" } }, /* @__PURE__ */ window.React.createElement("div", null, /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "var(--text)" } }, /* @__PURE__ */ window.React.createElement("span", { style: { verticalAlign: -2, marginRight: 6, color: "var(--accent)" } }, /* @__PURE__ */ window.React.createElement(WikiIcon, null)), "\u77E5\u8BC6\u5E93\u4E3B\u9875"), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 4 } }, "\u77E5\u8BC6\u8D44\u4EA7 \xB7 \u95EE\u7B54\u8D28\u91CF \xB7 \u670D\u52A1\u72B6\u6001 \xB7 \u6784\u5EFA\u6D41\u6C34\u7EBF \xB7 \u77E5\u8BC6\u56FE\u8C31\uFF08mock \u6570\u636E\uFF09")), /* @__PURE__ */ window.React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 } }, /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u77E5\u8BC6\u8D44\u4EA7\u6784\u6210" }, /* @__PURE__ */ window.React.createElement(AssetPieChart, null)), /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u95EE\u7B54\u8D28\u91CF\u8BC4\u4F30" }, /* @__PURE__ */ window.React.createElement(QaQualityBars, null))), /* @__PURE__ */ window.React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 } }, /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u8F93\u51FA\u4E0E\u670D\u52A1 \xB7 \u670D\u52A1\u8FD0\u884C\u72B6\u6001", extra: /* @__PURE__ */ window.React.createElement("span", { style: { fontSize: 10, color: CHART_COLORS.green } }, "\u25CF \u5B9E\u65F6") }, /* @__PURE__ */ window.React.createElement(ServicesStatus, null)), /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u77E5\u8BC6\u6784\u5EFA\u6D41\u6C34\u7EBF" }, /* @__PURE__ */ window.React.createElement(PipelineFlow, null))), /* @__PURE__ */ window.React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 } }, /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u6700\u8FD1\u6587\u6863" }, /* @__PURE__ */ window.React.createElement(RecentDocs, null)), /* @__PURE__ */ window.React.createElement(SectionCard, { title: "\u77E5\u8BC6\u56FE\u8C31\u9884\u89C8" }, /* @__PURE__ */ window.React.createElement(GraphPreview, null))));
   }
   function PagePlaceholder({ title, description }) {
     return /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: 32, color: "var(--text-muted)", textAlign: "center" } }, /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: "var(--text)" } }, title), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 12, maxWidth: 420, lineHeight: 1.6 } }, description), /* @__PURE__ */ window.React.createElement("div", { style: { fontSize: 11, color: "var(--text-dim)", marginTop: 4 } }, "\u5EFA\u8BBE\u4E2D \xB7 \u6309 robopi-plugins/wiki \u8BBE\u8BA1\u6587\u6863\u5B9E\u65BD"));
