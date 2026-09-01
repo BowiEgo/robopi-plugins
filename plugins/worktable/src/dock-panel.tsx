@@ -351,18 +351,17 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
             touchAction: "none",
           }}
         >
-          {/* 2px visual line centered in the hot zone */}
+          {/* 2px visual line aligned with the panel border (sidebar-resizer look:
+              transparent by default, highlighted on hover/drag) */}
           <div
             style={{
               position: "absolute",
               ...(horizontal
-                ? { top: 0, bottom: 0, left: "50%", width: 2, transform: "translateX(-50%)" }
-                : { left: 0, right: 0, top: "50%", height: 2, transform: "translateY(-50%)" }),
-              background: isResizing
-                ? "var(--accent)"
-                : handleHover
-                  ? "color-mix(in srgb, var(--accent) 55%, var(--border))"
-                  : "var(--border)",
+                ? { top: 0, bottom: 0, width: 2, ...(side === "left" ? { right: 0 } : { left: 0 }) }
+                : { left: 0, right: 0, height: 2, ...(side === "top" ? { bottom: 0 } : { top: 0 }) }),
+              background: isResizing || handleHover
+                ? "color-mix(in srgb, var(--text-muted) 70%, var(--border))"
+                : "transparent",
               pointerEvents: "none",
               transition: "background 0.12s ease",
               borderRadius: 1,
