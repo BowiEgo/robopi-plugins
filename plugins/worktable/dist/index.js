@@ -1,7 +1,174 @@
 "use strict";
 (() => {
-  // plugins-dev/robopi-plugins/plugins/worktable/src/index.tsx
+  // plugins-dev/robopi-plugins/plugins/worktable/src/dock-panel.tsx
   var { useEffect, useRef, useState } = window.React;
+  var MIN_SIZE = 200;
+  var MAX_SIZE = 640;
+  var WIDTH_KEY = "robopi-worktable-width";
+  var HEIGHT_KEY = "robopi-worktable-height";
+  function DropZone({ side, hint }) {
+    const highlighted = hint === side;
+    const base = {
+      position: "absolute",
+      pointerEvents: "none",
+      background: highlighted ? "color-mix(in srgb, var(--accent) 14%, transparent)" : "transparent",
+      transition: "background 0.1s ease"
+    };
+    const rect = side === "left" ? { top: 0, bottom: 0, left: 0, width: "28%", borderRight: highlighted ? "3px solid var(--accent)" : "none" } : side === "right" ? { top: 0, bottom: 0, right: 0, width: "28%", borderLeft: highlighted ? "3px solid var(--accent)" : "none" } : side === "top" ? { left: 0, right: 0, top: 0, height: "28%", borderBottom: highlighted ? "3px solid var(--accent)" : "none" } : { left: 0, right: 0, bottom: 0, height: "28%", borderTop: highlighted ? "3px solid var(--accent)" : "none" };
+    return /* @__PURE__ */ window.React.createElement("div", { style: { ...base, ...rect } });
+  }
+  function readStoredSize(key, fallback) {
+    const stored = Number(window.localStorage.getItem(key));
+    return Number.isFinite(stored) ? Math.min(MAX_SIZE, Math.max(MIN_SIZE, stored)) : fallback;
+  }
+  function DockPanel({ title, api, children }) {
+    const [width, setWidth] = useState(() => readStoredSize(WIDTH_KEY, 320));
+    const [height, setHeight] = useState(() => readStoredSize(HEIGHT_KEY, 280));
+    const [dragHint, setDragHint] = useState(null);
+    const [dragging, setDragging] = useState(false);
+    const [resizing, setResizing] = useState(false);
+    const widthRef = useRef(width);
+    const heightRef = useRef(height);
+    widthRef.current = width;
+    heightRef.current = height;
+    useEffect(() => {
+      try {
+        window.localStorage.setItem(WIDTH_KEY, String(width));
+      } catch {
+      }
+    }, [width]);
+    useEffect(() => {
+      try {
+        window.localStorage.setItem(HEIGHT_KEY, String(height));
+      } catch {
+      }
+    }, [height]);
+    const startHeaderDrag = (e) => {
+      e.preventDefault();
+      setDragging(true);
+      const pick = (ev) => {
+        const { innerWidth: w, innerHeight: h } = window;
+        if (ev.clientX < w / 4) return "left";
+        if (ev.clientX > 3 * w / 4) return "right";
+        return ev.clientY < h / 2 ? "top" : "bottom";
+      };
+      const move = (ev) => setDragHint(pick(ev));
+      const up = (ev) => {
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        setDragging(false);
+        setDragHint(null);
+        api.setDockSide(pick(ev));
+      };
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
+    };
+    const startResize = (e) => {
+      e.preventDefault();
+      setResizing(true);
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startWidth = widthRef.current;
+      const startHeight = heightRef.current;
+      const move = (ev) => {
+        setWidth(Math.min(MAX_SIZE, Math.max(MIN_SIZE, startWidth + (ev.clientX - startX))));
+        setHeight(Math.min(MAX_SIZE, Math.max(MIN_SIZE, startHeight + (ev.clientY - startY))));
+      };
+      const up = () => {
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        setResizing(false);
+      };
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
+    };
+    return /* @__PURE__ */ window.React.createElement(window.React.Fragment, null, /* @__PURE__ */ window.React.createElement(
+      "div",
+      {
+        style: {
+          width,
+          height,
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          overflow: "hidden",
+          background: "var(--bg-panel)",
+          borderRight: "1px solid var(--border)",
+          borderLeft: "1px solid var(--border)",
+          borderBottom: "1px solid var(--border)",
+          position: "relative"
+        }
+      },
+      /* @__PURE__ */ window.React.createElement(
+        "div",
+        {
+          onMouseDown: startHeaderDrag,
+          style: {
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            height: 30,
+            padding: "0 10px",
+            flexShrink: 0,
+            borderBottom: "1px solid var(--border)",
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--text)",
+            cursor: dragging ? "grabbing" : "grab",
+            userSelect: "none",
+            background: "var(--bg-panel)"
+          },
+          title: "\u62D6\u62FD\u6807\u9898\u680F\u5207\u6362\u505C\u9760\u4F4D\u7F6E\uFF08\u4E0A/\u4E0B/\u5DE6/\u53F3\uFF09"
+        },
+        /* @__PURE__ */ window.React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 } }, title),
+        /* @__PURE__ */ window.React.createElement(
+          "button",
+          {
+            type: "button",
+            onClick: () => window.robopi?.setDockOpen?.(false),
+            "aria-label": "\u5173\u95ED\u5DE5\u4F5C\u53F0",
+            title: "\u5173\u95ED\u5DE5\u4F5C\u53F0",
+            style: {
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              color: "var(--text-dim)",
+              fontSize: 14,
+              padding: "2px 6px",
+              borderRadius: 4
+            }
+          },
+          "\xD7"
+        )
+      ),
+      /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: "auto" } }, children)
+    ), /* @__PURE__ */ window.React.createElement(
+      "div",
+      {
+        onMouseDown: startResize,
+        role: "separator",
+        "aria-orientation": "horizontal",
+        title: "\u62D6\u62FD\u8C03\u6574\u5927\u5C0F",
+        style: {
+          width: 12,
+          height: 12,
+          flexShrink: 0,
+          cursor: "nwse-resize",
+          position: "relative",
+          background: resizing ? "var(--accent)" : "transparent",
+          marginTop: -12,
+          marginRight: -12,
+          alignSelf: "flex-end",
+          zIndex: 10,
+          transition: "background 0.1s ease"
+        }
+      }
+    ), dragging && /* @__PURE__ */ window.React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 9999, pointerEvents: "none" } }, /* @__PURE__ */ window.React.createElement(DropZone, { side: "top", hint: dragHint }), /* @__PURE__ */ window.React.createElement(DropZone, { side: "left", hint: dragHint }), /* @__PURE__ */ window.React.createElement(DropZone, { side: "right", hint: dragHint }), /* @__PURE__ */ window.React.createElement(DropZone, { side: "bottom", hint: dragHint })));
+  }
+
+  // plugins-dev/robopi-plugins/plugins/worktable/src/index.tsx
+  var { useEffect: useEffect2, useRef: useRef2, useState: useState2 } = window.React;
   var robopi = window.robopi;
   if (!robopi) {
     throw new Error("[worktable] \u5BBF\u4E3B\u672A\u6CE8\u5165 robopi API");
@@ -16,8 +183,8 @@
     selectedListeners.forEach((listener) => listener());
   }
   function useSelectedWorktableId() {
-    const [, forceRender] = useState(0);
-    useEffect(() => {
+    const [, forceRender] = useState2(0);
+    useEffect2(() => {
       const listener = () => forceRender((n) => n + 1);
       selectedListeners.add(listener);
       return () => {
@@ -27,8 +194,8 @@
     return getSelectedWorktableId();
   }
   function OverviewPanel({ api }) {
-    const [stats, setStats] = useState(null);
-    useEffect(() => {
+    const [stats, setStats] = useState2(null);
+    useEffect2(() => {
       let cancelled = false;
       Promise.all([api.listSessions(), api.getStatus()]).then(([sessions, status]) => {
         if (cancelled) return;
@@ -70,10 +237,10 @@
     }
   ];
   function WorktablePanel({ api }) {
-    const [open, setOpen] = useState(true);
-    const [items, setItems] = useState(BUILTIN_ITEMS);
+    const [open, setOpen] = useState2(true);
+    const [items, setItems] = useState2(BUILTIN_ITEMS);
     const selected = useSelectedWorktableId();
-    useEffect(() => {
+    useEffect2(() => {
       const refresh = () => {
         const registered = api.getWorktableItems();
         if (registered.length === 0) return;
@@ -177,26 +344,10 @@
   }
   robopi.registerSlot("sidebar-bottom", (api) => /* @__PURE__ */ window.React.createElement(WorktablePanel, { api }));
   robopi.registerDockPanel(() => /* @__PURE__ */ window.React.createElement(WorktableDockPanel, null));
-  var DOCK_WIDTH_KEY = "robopi-worktable-width";
-  var DOCK_WIDTH_MIN = 240;
-  var DOCK_WIDTH_MAX = 560;
   function WorktableDockPanel() {
-    const [width, setWidth] = useState(() => {
-      const stored = Number(window.localStorage.getItem(DOCK_WIDTH_KEY));
-      return Number.isFinite(stored) ? Math.min(DOCK_WIDTH_MAX, Math.max(DOCK_WIDTH_MIN, stored)) : 320;
-    });
-    const [items, setItems] = useState(BUILTIN_ITEMS);
+    const [items, setItems] = useState2(BUILTIN_ITEMS);
     const selected = useSelectedWorktableId();
-    const [resizing, setResizing] = useState(false);
-    const widthRef = useRef(width);
-    widthRef.current = width;
-    useEffect(() => {
-      try {
-        window.localStorage.setItem(DOCK_WIDTH_KEY, String(width));
-      } catch {
-      }
-    }, [width]);
-    useEffect(() => {
+    useEffect2(() => {
       const refresh = () => {
         const registered = window.robopi.getWorktableItems?.() ?? [];
         if (registered.length === 0) return;
@@ -209,98 +360,8 @@
       const timer = setInterval(refresh, 5e3);
       return () => clearInterval(timer);
     }, []);
-    const startResize = (e) => {
-      e.preventDefault();
-      setResizing(true);
-      const startX = e.clientX;
-      const startWidth = widthRef.current;
-      const move = (ev) => {
-        const delta = ev.clientX - startX;
-        setWidth(Math.min(DOCK_WIDTH_MAX, Math.max(DOCK_WIDTH_MIN, startWidth + delta)));
-      };
-      const up = () => {
-        window.removeEventListener("mousemove", move);
-        window.removeEventListener("mouseup", up);
-        setResizing(false);
-      };
-      window.addEventListener("mousemove", move);
-      window.addEventListener("mouseup", up);
-    };
     const item = items.find((i) => i.id === selected) ?? items[0];
-    return /* @__PURE__ */ window.React.createElement(
-      "div",
-      {
-        style: {
-          width,
-          flexShrink: 0,
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-          overflow: "hidden",
-          background: "var(--bg-panel)",
-          borderRight: "1px solid var(--border)",
-          position: "relative"
-        }
-      },
-      /* @__PURE__ */ window.React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            height: 32,
-            padding: "0 10px",
-            flexShrink: 0,
-            borderBottom: "1px solid var(--border)",
-            fontSize: 12,
-            fontWeight: 700,
-            color: "var(--text)",
-            userSelect: "none"
-          }
-        },
-        /* @__PURE__ */ window.React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 } }, "\u{1F9E9} \u5DE5\u4F5C\u53F0"),
-        /* @__PURE__ */ window.React.createElement(
-          "button",
-          {
-            type: "button",
-            onClick: () => window.robopi?.setDockOpen?.(false),
-            "aria-label": "\u5173\u95ED\u5DE5\u4F5C\u53F0",
-            title: "\u5173\u95ED\u5DE5\u4F5C\u53F0",
-            style: {
-              border: "none",
-              background: "none",
-              cursor: "pointer",
-              color: "var(--text-dim)",
-              fontSize: 14,
-              padding: "2px 6px",
-              borderRadius: 4
-            }
-          },
-          "\xD7"
-        )
-      ),
-      /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: "auto" } }, !item && /* @__PURE__ */ window.React.createElement("div", { style: { padding: 12, fontSize: 12, color: "var(--text-dim)" } }, "\u65E0\u5DE5\u4F5C\u53F0"), item && item.component ? /* @__PURE__ */ window.React.createElement(item.component, { api: pluginApiShim }) : item ? /* @__PURE__ */ window.React.createElement("div", { style: { padding: 12 } }, /* @__PURE__ */ window.React.createElement(PlaceholderPanel, { item })) : null),
-      /* @__PURE__ */ window.React.createElement(
-        "div",
-        {
-          onMouseDown: startResize,
-          role: "separator",
-          "aria-orientation": "vertical",
-          title: "\u62D6\u62FD\u8C03\u6574\u5BBD\u5EA6",
-          style: {
-            position: "absolute",
-            top: 0,
-            bottom: 0,
-            right: 0,
-            width: 6,
-            cursor: "col-resize",
-            background: resizing ? "var(--accent)" : "transparent",
-            transition: "background 0.1s ease"
-          }
-        }
-      )
-    );
+    return /* @__PURE__ */ window.React.createElement(DockPanel, { title: "\u{1F9E9} \u5DE5\u4F5C\u53F0", api: pluginApiShim }, !item && /* @__PURE__ */ window.React.createElement("div", { style: { padding: 12, fontSize: 12, color: "var(--text-dim)" } }, "\u65E0\u5DE5\u4F5C\u53F0"), item && item.component ? /* @__PURE__ */ window.React.createElement(item.component, { api: pluginApiShim }) : item ? /* @__PURE__ */ window.React.createElement("div", { style: { padding: 12 } }, /* @__PURE__ */ window.React.createElement(PlaceholderPanel, { item })) : null);
   }
   var pluginApiShim = {
     getStatus: () => fetch("/api/robopi/status", { cache: "no-store" }).then((r) => r.json()),
@@ -309,7 +370,8 @@
       window.location.assign(`/?session=${encodeURIComponent(sessionId)}`);
     },
     getWorktableItems: () => window.robopi.getWorktableItems?.() ?? [],
-    openDock: () => window.robopi.openDock?.()
+    openDock: () => window.robopi.openDock?.(),
+    setDockSide: (side) => window.robopi.setDockSide?.(side)
   };
   console.log("[worktable] loaded \u2705 (\u5DE5\u4F5C\u53F0\u5BB9\u5668)");
 })();

@@ -31,6 +31,9 @@ export type OverridableComponentName =
   | "BranchNavigator"
   | "AppShell";
 
+/** Dock panel docking sides (VSCode-style four-way) */
+export type DockSide = "left" | "right" | "top" | "bottom";
+
 /** 宿主 API 桥 */
 export interface PluginApi {
   getStatus(): Promise<unknown>;
@@ -40,6 +43,8 @@ export interface PluginApi {
   getWorktableItems(): WorktableItem[];
   /** Open the dock panel (rendered below the file browser) */
   openDock(): void;
+  /** Dock the panel to a side of the chat area (VSCode-style) */
+  setDockSide(side: DockSide): void;
 }
 
 /** 工作台项（worktable 插件渲染的列表项） */
@@ -65,6 +70,7 @@ declare global {
       registerWorktableItem(item: WorktableItem): void;
       registerDockPanel(renderer: SlotRenderer): void;
       openDock(): void;
+      setDockSide(side: DockSide): void;
     };
     React?: typeof import("react");
   }
