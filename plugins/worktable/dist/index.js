@@ -32,6 +32,10 @@
     const heightRef = useRef(height);
     widthRef.current = width;
     heightRef.current = height;
+    const chatAreaRef = useRef(null);
+    if (panelRef.current) {
+      chatAreaRef.current = panelRef.current.parentElement?.parentElement?.getBoundingClientRect() ?? null;
+    }
     useEffect(() => {
       try {
         window.localStorage.setItem(WIDTH_KEY, String(width));
@@ -48,10 +52,18 @@
       e.preventDefault();
       setDragging(true);
       const pick = (ev) => {
-        const { innerWidth: w, innerHeight: h } = window;
-        if (ev.clientX < w / 4) return "left";
-        if (ev.clientX > 3 * w / 4) return "right";
-        return ev.clientY < h / 2 ? "top" : "bottom";
+        const rect = chatAreaRef.current;
+        if (!rect) {
+          const { innerWidth: w, innerHeight: h } = window;
+          if (ev.clientX < w / 4) return "left";
+          if (ev.clientX > 3 * w / 4) return "right";
+          return ev.clientY < h / 2 ? "top" : "bottom";
+        }
+        const x = ev.clientX - rect.left;
+        const y = ev.clientY - rect.top;
+        if (x < rect.width / 4) return "left";
+        if (x > rect.width * 3 / 4) return "right";
+        return y < rect.height / 2 ? "top" : "bottom";
       };
       const move = (ev) => setDragHint(pick(ev));
       const up = (ev) => {
@@ -110,7 +122,7 @@
       height: 6,
       cursor: "row-resize"
     };
-    const chatAreaRect = dragging && panelRef.current ? panelRef.current.parentElement?.parentElement?.getBoundingClientRect() : void 0;
+    const chatAreaRect = dragging ? chatAreaRef.current : null;
     return /* @__PURE__ */ window.React.createElement(window.React.Fragment, null, /* @__PURE__ */ window.React.createElement(
       "div",
       {
@@ -155,6 +167,7 @@
           "button",
           {
             type: "button",
+            onMouseDown: (e) => e.stopPropagation(),
             onClick: () => window.robopi?.setDockOpen?.(false),
             "aria-label": "\u5173\u95ED\u5DE5\u4F5C\u53F0",
             title: "\u5173\u95ED\u5DE5\u4F5C\u53F0",

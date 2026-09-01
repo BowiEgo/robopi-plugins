@@ -58,6 +58,12 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
   widthRef.current = width;
   heightRef.current = height;
 
+  // The chat-area container (dock layout holder) rect, refreshed on render.
+  const chatAreaRef = useRef<DOMRect | null>(null);
+  if (panelRef.current) {
+    chatAreaRef.current = panelRef.current.parentElement?.parentElement?.getBoundingClientRect() ?? null;
+  }
+
   useEffect(() => {
     try {
       window.localStorage.setItem(WIDTH_KEY, String(width));
@@ -70,18 +76,27 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
   }, [height]);
 
   /**
-   * Title-bar drag: pick a docking side from the pointer position
-   * (left/right thirds on x, otherwise top/bottom on y), show the drop
-   * hint clipped to the chat area, commit on release.
+   * Title-bar drag: pick a docking side from the pointer position relative
+   * to the chat-area container (not the whole page): left/right within the
+   * outer quarters, otherwise top/bottom on the vertical half.
    */
   const startHeaderDrag = (e: React.MouseEvent) => {
     e.preventDefault();
     setDragging(true);
     const pick = (ev: MouseEvent): DockSide => {
-      const { innerWidth: w, innerHeight: h } = window;
-      if (ev.clientX < w / 4) return "left";
-      if (ev.clientX > (3 * w) / 4) return "right";
-      return ev.clientY < h / 2 ? "top" : "bottom";
+      const rect = chatAreaRef.current;
+      if (!rect) {
+        // Fallback: page-based quarters when the container is unknown
+        const { innerWidth: w, innerHeight: h } = window;
+        if (ev.clientX < w / 4) return "left";
+        if (ev.clientX > (3 * w) / 4) return "right";
+        return ev.clientY < h / 2 ? "top" : "bottom";
+      }
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      if (x < rect.width / 4) return "left";
+      if (x > (rect.width * 3) / 4) return "right";
+      return y < rect.height / 2 ? "top" : "bottom";
     };
     const move = (ev: MouseEvent) => setDragHint(pick(ev));
     const up = (ev: MouseEvent) => {
@@ -147,10 +162,8 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
         height: 6, cursor: "row-resize",
       };
 
-  /** The dock layout container (chat area) - the drop hints are clipped to it. */
-  const chatAreaRect = dragging && panelRef.current
-    ? panelRef.current.parentElement?.parentElement?.getBoundingClientRect()
-    : undefined;
+  /** The chat-area rect used to clip the drop hints while dragging. */
+  const chatAreaRect = dragging ? chatAreaRef.current : null;
 
   return (
     <>
@@ -187,6 +200,7 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
           </span>
           <button
             type="button"
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={() => (window.robopi as unknown as { setDockOpen?: (v: boolean) => void })?.setDockOpen?.(false)}
             aria-label="关闭工作台"
             title="关闭工作台"
