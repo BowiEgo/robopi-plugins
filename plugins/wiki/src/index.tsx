@@ -71,9 +71,9 @@ function FileIcon() {
 type WikiPage = "dashboard" | "documents" | "wiki" | "graph" | "evaluate";
 
 const PAGES: Array<{ id: WikiPage; label: string }> = [
-  { id: "dashboard", label: "工作台" },
+  { id: "dashboard", label: "主页" },
   { id: "documents", label: "文档管理" },
-  { id: "wiki", label: "Wiki 知识库" },
+  { id: "wiki", label: "Wiki" },
   { id: "graph", label: "知识图谱" },
   { id: "evaluate", label: "评估与优化" },
 ];
@@ -83,6 +83,167 @@ function syncBreadcrumb(page: WikiPage): void {
   const label = PAGES.find((p) => p.id === page)?.label ?? "";
   const api = (window as unknown as { robopiWorktable?: { setPath: (id: string, path: string[]) => void } }).robopiWorktable;
   api?.setPath("wiki", page === "dashboard" ? [] : [label]);
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard page: stats + self-drawn SVG charts (no third-party deps)
+// ---------------------------------------------------------------------------
+
+interface DayStat { day: string; count: number }
+interface SpaceStat { name: string; count: number; color: string }
+
+const WEEK_UPDATES: DayStat[] = [
+  { day: "一", count: 2 }, { day: "二", count: 5 }, { day: "三", count: 3 },
+  { day: "四", count: 8 }, { day: "五", count: 6 }, { day: "六", count: 4 }, { day: "日", count: 3 },
+];
+const SPACE_DIST: SpaceStat[] = [
+  { name: "财务制度", count: 3, color: "var(--accent)" },
+  { name: "人力资源", count: 1, color: "#22c55e" },
+  { name: "研发", count: 1, color: "#f59e0b" },
+  { name: "通用", count: 1, color: "#8b5cf6" },
+];
+
+/** Simple bar chart (SVG). */
+function BarChart({ data }: { data: DayStat[] }) {
+  const w = 300;
+  const h = 120;
+  const pad = 4;
+  const max = Math.max(...data.map((d) => d.count), 1);
+  const bw = (w - pad * (data.length + 1)) / data.length;
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
+      {data.map((d, i) => {
+        const bh = (d.count / max) * (h - 26);
+        const x = pad + i * (bw + pad);
+        const y = h - 22 - bh;
+        return (
+          <g key={d.day}>
+            <rect x={x} y={y} width={bw} height={bh} rx={2}
+              fill="color-mix(in srgb, var(--accent) 72%, var(--border))"
+            />
+            <text x={x + bw / 2} y={h - 8} textAnchor="middle" fontSize={9} fill="var(--text-dim)">
+              {d.day}
+            </text>
+            <text x={x + bw / 2} y={y - 3} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
+              {d.count}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** Donut chart (SVG stroke-dasharray). */
+function DonutChart({ data }: { data: SpaceStat[] }) {
+  const r = 44;
+  const c = 2 * Math.PI * r;
+  const total = data.reduce((sum, d) => sum + d.count, 0) || 1;
+  let offset = 0;
+  return (
+    <svg width={130} height={130} viewBox="0 0 130 130" style={{ display: "block" }}>
+      <circle cx={65} cy={65} r={r} fill="none" stroke="var(--border)" strokeWidth={16} />
+      {data.map((d) => {
+        const frac = d.count / total;
+        const el = (
+          <circle
+            key={d.name}
+            cx={65} cy={65} r={r} fill="none"
+            stroke={d.color} strokeWidth={16}
+            strokeDasharray={`${frac * c} ${c}`}
+            strokeDashoffset={-offset * c}
+            transform="rotate(-90 65 65)"
+            strokeLinecap="butt"
+          />
+        );
+        offset += frac;
+        return el;
+      })}
+      <text x={65} y={62} textAnchor="middle" fontSize={18} fontWeight={700} fill="var(--text)">
+        {total}
+      </text>
+      <text x={65} y={76} textAnchor="middle" fontSize={9} fill="var(--text-dim)">
+        空间
+      </text>
+    </svg>
+  );
+}
+
+/** Stat card. */
+function StatCard({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
+  return (
+    <div style={{
+      flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 10,
+      border: "1px solid var(--border)", background: "var(--bg)",
+    }}>
+      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", marginTop: 2 }}>{value}</div>
+      {hint && <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>{hint}</div>}
+    </div>
+  );
+}
+
+/** Dashboard: welcome header + stats + charts. */
+function DashboardPage() {
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+      {/* Header */}
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>
+          <span style={{ verticalAlign: -2, marginRight: 6, color: "var(--accent)" }}><WikiIcon /></span>
+          知识库主页
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+          企业知识中枢 · 最近文档、更新趋势与空间分布（mock 数据）
+        </div>
+      </div>
+
+      {/* Stat cards */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <StatCard label="文档总数" value={MOCK_DOCS.length} hint="5 篇示例" />
+        <StatCard label="知识空间" value={new Set(MOCK_DOCS.map((d) => d.space)).size} hint="财务 / 人力 / 研发" />
+        <StatCard label="本周更新" value={WEEK_UPDATES.reduce((s, d) => s + d.count, 0)} hint="+12% vs 上周" />
+        <StatCard label="标签数" value={new Set(MOCK_DOCS.flatMap((d) => d.tags)).size} hint="跨空间聚合" />
+      </div>
+
+      {/* Charts */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 220, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>近 7 日更新趋势</div>
+          <BarChart data={WEEK_UPDATES} />
+        </div>
+        <div style={{ flex: 1, minWidth: 220, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>空间分布</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <DonutChart data={SPACE_DIST} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {SPACE_DIST.map((d) => (
+                <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: d.color, display: "inline-block" }} />
+                  <span style={{ color: "var(--text-muted)" }}>{d.name}</span>
+                  <span style={{ color: "var(--text-dim)" }}>{d.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent documents */}
+      <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>最近文档</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {MOCK_DOCS.slice(0, 3).map((doc) => (
+            <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+              <span style={{ color: "var(--text-muted)", display: "flex" }}><FileIcon /></span>
+              <span style={{ color: "var(--text)", fontWeight: 500, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</span>
+              <span style={{ color: "var(--text-dim)", fontSize: 10.5 }}>{doc.space} · {doc.updated}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** Placeholder page content (skeleton states). */
@@ -183,12 +344,7 @@ function WikiPanel({ api }: { api: PluginApi }) {
 
       {/* Page content */}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 16 }}>
-        {page === "dashboard" && (
-          <PagePlaceholder
-            title="工作台"
-            description="Wiki 知识库工作台仪表盘（预留）：最近文档、知识统计、快捷入口将在此展示。"
-          />
-        )}
+        {page === "dashboard" && <DashboardPage />}
         {page === "documents" && (
           <PagePlaceholder
             title="文档管理"
@@ -270,7 +426,7 @@ const pendingKey = "__robopiWorktablePending";
 const robopiWorktable = (window as unknown as { robopiWorktable?: { registerItem: (item: unknown) => void } }).robopiWorktable;
 const wikiItem = {
   id: "wiki",
-  label: "Wiki 知识库",
+  label: "知识库",
   icon: <WikiIcon />,
   description: "企业文档 · 知识库 · 知识图谱",
   component: WikiPanel,
