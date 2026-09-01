@@ -61,6 +61,7 @@ declare global {
       registerComponent(name: OverridableComponentName, factory: ComponentFactory): void;
       registerMessageRenderer(customType: string, renderer: MessageRenderer): void;
       registerWorktableItem(item: WorktableItem): void;
+      registerDockPanel(renderer: SlotRenderer): void;
     };
     React?: typeof import("react");
   }

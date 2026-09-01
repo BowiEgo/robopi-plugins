@@ -71,11 +71,9 @@
       "div",
       {
         style: {
-          margin: "8px 10px",
-          borderRadius: 10,
-          border: "1px solid var(--border)",
-          background: "var(--tool-bg)",
-          overflow: "hidden"
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0
         }
       },
       /* @__PURE__ */ window.React.createElement(
@@ -89,13 +87,15 @@
             alignItems: "center",
             gap: 6,
             width: "100%",
-            padding: "8px 10px",
+            padding: "6px 8px",
             background: "none",
             border: "none",
             cursor: "pointer",
-            fontSize: 12,
-            fontWeight: 700,
-            color: "var(--text)"
+            fontSize: 11,
+            fontWeight: 600,
+            color: "var(--text-muted)",
+            textTransform: "uppercase",
+            letterSpacing: 0.4
           }
         },
         /* @__PURE__ */ window.React.createElement(
@@ -127,16 +127,24 @@
             style: {
               display: "flex",
               alignItems: "center",
-              gap: 8,
+              gap: 6,
               width: "100%",
-              padding: "6px 8px",
-              borderRadius: 6,
+              height: 24,
+              padding: "0 8px",
+              borderRadius: 4,
               cursor: "pointer",
               background: active ? "var(--bg-selected)" : "transparent",
               border: "none",
               fontSize: 12,
               color: "var(--text)",
-              textAlign: "left"
+              textAlign: "left",
+              whiteSpace: "nowrap"
+            },
+            onMouseEnter: (e) => {
+              if (!active) e.currentTarget.style.background = "var(--bg-hover)";
+            },
+            onMouseLeave: (e) => {
+              if (!active) e.currentTarget.style.background = "transparent";
             }
           },
           /* @__PURE__ */ window.React.createElement("span", { "aria-hidden": true }, item.icon ?? "\u2022"),
@@ -146,8 +154,8 @@
         "div",
         {
           style: {
-            marginTop: 4,
-            padding: "10px 8px",
+            marginTop: 2,
+            padding: "8px 8px",
             borderTop: "1px solid var(--border)",
             fontSize: 12
           }
@@ -156,6 +164,6 @@
       ))
     );
   }
-  robopi.registerSlot("sidebar-bottom", (api) => /* @__PURE__ */ window.React.createElement(WorktablePanel, { api }));
+  robopi.registerDockPanel((api) => /* @__PURE__ */ window.React.createElement(WorktablePanel, { api }));
   console.log("[worktable] loaded \u2705 (\u5DE5\u4F5C\u53F0\u5BB9\u5668)");
 })();

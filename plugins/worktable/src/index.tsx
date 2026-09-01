@@ -117,11 +117,9 @@ function WorktablePanel({ api }: { api: PluginApi }) {
   return (
     <div
       style={{
-        margin: "8px 10px",
-        borderRadius: 10,
-        border: "1px solid var(--border)",
-        background: "var(--tool-bg)",
-        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
       }}
     >
       {/* 可折叠头部（文件浏览器风格箭头） */}
@@ -131,8 +129,9 @@ function WorktablePanel({ api }: { api: PluginApi }) {
         aria-expanded={open}
         style={{
           display: "flex", alignItems: "center", gap: 6, width: "100%",
-          padding: "8px 10px", background: "none", border: "none", cursor: "pointer",
-          fontSize: 12, fontWeight: 700, color: "var(--text)",
+          padding: "6px 8px", background: "none", border: "none", cursor: "pointer",
+          fontSize: 11, fontWeight: 600, color: "var(--text-muted)",
+          textTransform: "uppercase", letterSpacing: 0.4,
         }}
       >
         <svg
@@ -159,11 +158,14 @@ function WorktablePanel({ api }: { api: PluginApi }) {
                 type="button"
                 onClick={() => setSelected(item.id)}
                 style={{
-                  display: "flex", alignItems: "center", gap: 8, width: "100%",
-                  padding: "6px 8px", borderRadius: 6, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 6, width: "100%",
+                  height: 24, padding: "0 8px", borderRadius: 4, cursor: "pointer",
                   background: active ? "var(--bg-selected)" : "transparent",
                   border: "none", fontSize: 12, color: "var(--text)", textAlign: "left",
+                  whiteSpace: "nowrap",
                 }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--bg-hover)"; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
               >
                 <span aria-hidden>{item.icon ?? "•"}</span>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -177,7 +179,7 @@ function WorktablePanel({ api }: { api: PluginApi }) {
           {selectedItem && (
             <div
               style={{
-                marginTop: 4, padding: "10px 8px", borderTop: "1px solid var(--border)",
+                marginTop: 2, padding: "8px 8px", borderTop: "1px solid var(--border)",
                 fontSize: 12,
               }}
             >
@@ -196,6 +198,6 @@ function WorktablePanel({ api }: { api: PluginApi }) {
 
 // ============ 注册 ============
 
-robopi.registerSlot("sidebar-bottom", (api) => <WorktablePanel api={api} />);
+robopi.registerDockPanel((api) => <WorktablePanel api={api} />);
 
 console.log("[worktable] loaded ✅ (工作台容器)");
