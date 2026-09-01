@@ -95,17 +95,31 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
     window.addEventListener("mouseup", up);
   };
 
-  /** Corner handle drag: width for left/right docks, height for top/bottom. */
+  /**
+   * Edge handle drag adjusted to the docking side:
+   * left -> right edge (width), right -> left edge (width),
+   * top -> bottom edge (height), bottom -> top edge (height).
+   */
   const startResize = (e: React.MouseEvent) => {
     e.preventDefault();
     setResizing(true);
+    const side = api.getDockSide();
+    const horizontal = side === "left" || side === "right";
     const startX = e.clientX;
     const startY = e.clientY;
     const startWidth = widthRef.current;
     const startHeight = heightRef.current;
+    const clamp = (v: number) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, v));
     const move = (ev: MouseEvent) => {
-      setWidth(Math.min(MAX_SIZE, Math.max(MIN_SIZE, startWidth + (ev.clientX - startX))));
-      setHeight(Math.min(MAX_SIZE, Math.max(MIN_SIZE, startHeight + (ev.clientY - startY))));
+      if (horizontal) {
+        // left: dragging right grows; right: dragging left grows
+        const delta = side === "left" ? ev.clientX - startX : startX - ev.clientX;
+        setWidth(clamp(startWidth + delta));
+      } else {
+        // top: dragging down grows; bottom: dragging up grows
+        const delta = side === "top" ? ev.clientY - startY : startY - ev.clientY;
+        setHeight(clamp(startHeight + delta));
+      }
     };
     const up = () => {
       window.removeEventListener("mousemove", move);
@@ -115,6 +129,23 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
   };
+
+  const side = api.getDockSide();
+  const horizontal = side === "left" || side === "right";
+  // Resize handle placed on the edge facing the chat area
+  const handleStyle: React.CSSProperties = horizontal
+    ? {
+        position: "absolute", top: 0, bottom: 0,
+        left: side === "right" ? 0 : undefined,
+        right: side === "left" ? 0 : undefined,
+        width: 6, cursor: "col-resize",
+      }
+    : {
+        position: "absolute", left: 0, right: 0,
+        top: side === "bottom" ? 0 : undefined,
+        bottom: side === "top" ? 0 : undefined,
+        height: 6, cursor: "row-resize",
+      };
 
   /** The dock layout container (chat area) - the drop hints are clipped to it. */
   const chatAreaRect = dragging && panelRef.current
@@ -126,8 +157,8 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
       <div
         ref={panelRef}
         style={{
-          width,
-          height,
+          width: "100%",
+          height: "100%",
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
@@ -135,7 +166,6 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
           overflow: "hidden",
           background: "var(--bg-panel)",
           borderRight: "1px solid var(--border)",
-          borderLeft: "1px solid var(--border)",
           borderBottom: "1px solid var(--border)",
           position: "relative",
         }}
@@ -175,16 +205,16 @@ export function DockPanel({ title, api, children }: { title: React.ReactNode; ap
         </div>
       </div>
 
-      {/* Size handle (bottom-right corner) */}
+      {/* Size handle on the edge facing the chat area (side-dependent) */}
       <div
         onMouseDown={startResize}
         role="separator"
-        aria-orientation="horizontal"
+        aria-orientation={horizontal ? "vertical" : "horizontal"}
         title="拖拽调整大小"
         style={{
-          width: 12, height: 12, flexShrink: 0, cursor: "nwse-resize",
-          position: "relative", background: resizing ? "var(--accent)" : "transparent",
-          marginTop: -12, marginRight: -12, alignSelf: "flex-end", zIndex: 10,
+          ...handleStyle,
+          background: resizing ? "var(--accent)" : "transparent",
+          zIndex: 10,
           transition: "background 0.1s ease",
         }}
       />

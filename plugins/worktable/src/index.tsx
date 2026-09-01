@@ -105,8 +105,7 @@ function ControlRoomPanel({ api }: { api: PluginApi }) {
 
   useEffect(() => {
     const refresh = () => {
-      const registered = (window.robopi as unknown as { getWorktableItems?: () => WorktableItem[] })
-        .getWorktableItems?.() ?? [];
+      const registered = api.getWorktableItems();
       if (registered.length === 0) return;
       const merged = new Map<string, WorktableItem>();
       for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -118,11 +117,12 @@ function ControlRoomPanel({ api }: { api: PluginApi }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Mock cards: future registered worktables (grid preview)
+  // Mock cards: future registered worktables (grid preview);
+  // entries already registered by plugins are filtered out
+  const registeredIds = new Set(items.map((i) => i.id));
   const mockCards: Array<{ id: string; label: string; icon: React.ReactNode; description: string }> = [
-    { id: "wiki", label: "Wiki 知识库", icon: <WikiIcon />, description: "企业文档 · 知识库 · 知识图谱" },
     { id: "office", label: "办公助手", icon: <OfficeIcon />, description: "日程 · 邮件 · 审批" },
-  ];
+  ].filter((card) => !registeredIds.has(card.id));
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "28px 24px", gap: 24, overflowY: "auto" }}>
@@ -246,8 +246,7 @@ function WorktablePanel({ api }: { api: PluginApi }) {
 
   useEffect(() => {
     const refresh = () => {
-      const registered = (window.robopi as unknown as { getWorktableItems?: () => WorktableItem[] })
-        .getWorktableItems?.() ?? [];
+      const registered = api.getWorktableItems();
       if (registered.length === 0) return;
       const merged = new Map<string, WorktableItem>();
       for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -260,7 +259,7 @@ function WorktablePanel({ api }: { api: PluginApi }) {
   }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderTop: "1px solid var(--border)" }}>
       {/* 可折叠头部（文件浏览器风格箭头） */}
       <button
         type="button"
@@ -331,8 +330,7 @@ function WorktableDockPanel() {
 
   useEffect(() => {
     const refresh = () => {
-      const registered = (window.robopi as unknown as { getWorktableItems?: () => WorktableItem[] })
-        .getWorktableItems?.() ?? [];
+      const registered = pluginApiShim.getWorktableItems();
       if (registered.length === 0) return;
       const merged = new Map<string, WorktableItem>();
       for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -342,7 +340,7 @@ function WorktableDockPanel() {
     refresh();
     const timer = setInterval(refresh, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [selected]); // refresh immediately when the selection changes
 
   const item = items.find((i) => i.id === selected) ?? items[0];
 
@@ -379,6 +377,7 @@ const pluginApiShim: PluginApi = {
   getWorktableItems: () => (window.robopi as unknown as { getWorktableItems?: () => WorktableItem[] }).getWorktableItems?.() ?? [],
   openDock: () => (window.robopi as unknown as { openDock?: () => void }).openDock?.(),
   setDockSide: (side: DockSide) => (window.robopi as unknown as { setDockSide?: (s: DockSide) => void }).setDockSide?.(side),
+  getDockSide: () => (window.robopi as unknown as { getDockSide?: () => DockSide }).getDockSide?.() ?? "left",
 };
 
 console.log("[worktable] loaded ✅ (工作台容器)");

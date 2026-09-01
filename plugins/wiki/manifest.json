@@ -1,0 +1,7 @@
+{
+  "name": "wiki",
+  "version": "0.1.0",
+  "description": "Wiki 知识库工作台：企业文档 / 知识库 / 知识图谱",
+  "entry": "dist/index.js",
+  "slots": []
+}

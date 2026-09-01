@@ -67,13 +67,21 @@
     const startResize = (e) => {
       e.preventDefault();
       setResizing(true);
+      const side2 = api.getDockSide();
+      const horizontal2 = side2 === "left" || side2 === "right";
       const startX = e.clientX;
       const startY = e.clientY;
       const startWidth = widthRef.current;
       const startHeight = heightRef.current;
+      const clamp = (v) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, v));
       const move = (ev) => {
-        setWidth(Math.min(MAX_SIZE, Math.max(MIN_SIZE, startWidth + (ev.clientX - startX))));
-        setHeight(Math.min(MAX_SIZE, Math.max(MIN_SIZE, startHeight + (ev.clientY - startY))));
+        if (horizontal2) {
+          const delta = side2 === "left" ? ev.clientX - startX : startX - ev.clientX;
+          setWidth(clamp(startWidth + delta));
+        } else {
+          const delta = side2 === "top" ? ev.clientY - startY : startY - ev.clientY;
+          setHeight(clamp(startHeight + delta));
+        }
       };
       const up = () => {
         window.removeEventListener("mousemove", move);
@@ -83,14 +91,33 @@
       window.addEventListener("mousemove", move);
       window.addEventListener("mouseup", up);
     };
+    const side = api.getDockSide();
+    const horizontal = side === "left" || side === "right";
+    const handleStyle = horizontal ? {
+      position: "absolute",
+      top: 0,
+      bottom: 0,
+      left: side === "right" ? 0 : void 0,
+      right: side === "left" ? 0 : void 0,
+      width: 6,
+      cursor: "col-resize"
+    } : {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: side === "bottom" ? 0 : void 0,
+      bottom: side === "top" ? 0 : void 0,
+      height: 6,
+      cursor: "row-resize"
+    };
     const chatAreaRect = dragging && panelRef.current ? panelRef.current.parentElement?.parentElement?.getBoundingClientRect() : void 0;
     return /* @__PURE__ */ window.React.createElement(window.React.Fragment, null, /* @__PURE__ */ window.React.createElement(
       "div",
       {
         ref: panelRef,
         style: {
-          width,
-          height,
+          width: "100%",
+          height: "100%",
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
@@ -98,7 +125,6 @@
           overflow: "hidden",
           background: "var(--bg-panel)",
           borderRight: "1px solid var(--border)",
-          borderLeft: "1px solid var(--border)",
           borderBottom: "1px solid var(--border)",
           position: "relative"
         }
@@ -151,18 +177,11 @@
       {
         onMouseDown: startResize,
         role: "separator",
-        "aria-orientation": "horizontal",
+        "aria-orientation": horizontal ? "vertical" : "horizontal",
         title: "\u62D6\u62FD\u8C03\u6574\u5927\u5C0F",
         style: {
-          width: 12,
-          height: 12,
-          flexShrink: 0,
-          cursor: "nwse-resize",
-          position: "relative",
+          ...handleStyle,
           background: resizing ? "var(--accent)" : "transparent",
-          marginTop: -12,
-          marginRight: -12,
-          alignSelf: "flex-end",
           zIndex: 10,
           transition: "background 0.1s ease"
         }
@@ -226,9 +245,6 @@
   function ControlRoomIcon() {
     return /* @__PURE__ */ window.React.createElement("svg", { ...iconProps }, /* @__PURE__ */ window.React.createElement("rect", { x: "3", y: "3", width: "8", height: "10", rx: "1.5" }), /* @__PURE__ */ window.React.createElement("rect", { x: "13", y: "3", width: "8", height: "6", rx: "1.5" }), /* @__PURE__ */ window.React.createElement("rect", { x: "13", y: "11", width: "8", height: "10", rx: "1.5" }), /* @__PURE__ */ window.React.createElement("rect", { x: "3", y: "15", width: "8", height: "6", rx: "1.5" }));
   }
-  function WikiIcon() {
-    return /* @__PURE__ */ window.React.createElement("svg", { ...iconProps }, /* @__PURE__ */ window.React.createElement("path", { d: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20" }), /* @__PURE__ */ window.React.createElement("path", { d: "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" }));
-  }
   function OfficeIcon() {
     return /* @__PURE__ */ window.React.createElement("svg", { ...iconProps }, /* @__PURE__ */ window.React.createElement("path", { d: "M3 21h18" }), /* @__PURE__ */ window.React.createElement("path", { d: "M5 21V7l7-4 7 4v14" }), /* @__PURE__ */ window.React.createElement("path", { d: "M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1" }));
   }
@@ -236,7 +252,7 @@
     const [items, setItems] = useState2(BUILTIN_ITEMS);
     useEffect2(() => {
       const refresh = () => {
-        const registered = window.robopi.getWorktableItems?.() ?? [];
+        const registered = api.getWorktableItems();
         if (registered.length === 0) return;
         const merged = /* @__PURE__ */ new Map();
         for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -247,10 +263,10 @@
       const timer = setInterval(refresh, 5e3);
       return () => clearInterval(timer);
     }, []);
+    const registeredIds = new Set(items.map((i) => i.id));
     const mockCards = [
-      { id: "wiki", label: "Wiki \u77E5\u8BC6\u5E93", icon: /* @__PURE__ */ window.React.createElement(WikiIcon, null), description: "\u4F01\u4E1A\u6587\u6863 \xB7 \u77E5\u8BC6\u5E93 \xB7 \u77E5\u8BC6\u56FE\u8C31" },
       { id: "office", label: "\u529E\u516C\u52A9\u624B", icon: /* @__PURE__ */ window.React.createElement(OfficeIcon, null), description: "\u65E5\u7A0B \xB7 \u90AE\u4EF6 \xB7 \u5BA1\u6279" }
-    ];
+    ].filter((card) => !registeredIds.has(card.id));
     return /* @__PURE__ */ window.React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", padding: "28px 24px", gap: 24, overflowY: "auto" } }, /* @__PURE__ */ window.React.createElement("div", { style: { textAlign: "center", padding: "16px 0 4px" } }, /* @__PURE__ */ window.React.createElement(
       "div",
       {
@@ -349,7 +365,7 @@
     const selected = useSelectedWorktableId();
     useEffect2(() => {
       const refresh = () => {
-        const registered = window.robopi.getWorktableItems?.() ?? [];
+        const registered = api.getWorktableItems();
         if (registered.length === 0) return;
         const merged = /* @__PURE__ */ new Map();
         for (const item of BUILTIN_ITEMS) merged.set(item.id, item);
@@ -360,7 +376,7 @@
       const timer = setInterval(refresh, 5e3);
       return () => clearInterval(timer);
     }, []);
-    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", flexDirection: "column", minHeight: 0 } }, /* @__PURE__ */ window.React.createElement(
+    return /* @__PURE__ */ window.React.createElement("div", { style: { display: "flex", flexDirection: "column", minHeight: 0, borderTop: "1px solid var(--border)" } }, /* @__PURE__ */ window.React.createElement(
       "button",
       {
         type: "button",
@@ -443,7 +459,7 @@
     const selected = useSelectedWorktableId();
     useEffect2(() => {
       const refresh = () => {
-        const registered = window.robopi.getWorktableItems?.() ?? [];
+        const registered = pluginApiShim.getWorktableItems();
         if (registered.length === 0) return;
         const merged = /* @__PURE__ */ new Map();
         for (const item2 of BUILTIN_ITEMS) merged.set(item2.id, item2);
@@ -453,7 +469,7 @@
       refresh();
       const timer = setInterval(refresh, 5e3);
       return () => clearInterval(timer);
-    }, []);
+    }, [selected]);
     const item = items.find((i) => i.id === selected) ?? items[0];
     return /* @__PURE__ */ window.React.createElement(
       DockPanel,
@@ -475,7 +491,8 @@
     },
     getWorktableItems: () => window.robopi.getWorktableItems?.() ?? [],
     openDock: () => window.robopi.openDock?.(),
-    setDockSide: (side) => window.robopi.setDockSide?.(side)
+    setDockSide: (side) => window.robopi.setDockSide?.(side),
+    getDockSide: () => window.robopi.getDockSide?.() ?? "left"
   };
   console.log("[worktable] loaded \u2705 (\u5DE5\u4F5C\u53F0\u5BB9\u5668)");
 })();
