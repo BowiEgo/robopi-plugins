@@ -13,7 +13,7 @@ import type { PluginApi, WorktableItem } from "../plugin-env";
 import type * as React from "react";
 
 // 运行时 React 从宿主取（esbuild 移除 import type；JSX factory 见 tsconfig）
-const { useEffect, useState } = window.React as typeof import("react");
+const { useEffect, useRef, useState } = window.React as typeof import("react");
 
 // window.robopi 由宿主注入
 const robopi = window.robopi;
@@ -216,16 +216,35 @@ function WorktablePanel({ api }: { api: PluginApi }) {
 robopi.registerSlot("sidebar-bottom", (api) => <WorktablePanel api={api} />);
 
 // Dock content: renders the selected worktable below the file browser
-robopi.registerDockPanel(() => <WorktableDockContent />);
+robopi.registerDockPanel(() => <WorktableDockPanel />);
+
+const DOCK_WIDTH_KEY = "robopi-worktable-width";
+const DOCK_WIDTH_MIN = 240;
+const DOCK_WIDTH_MAX = 560;
 
 /**
- * Dock 内容区：渲染当前选中的工作台（与 sidebar 列表共享选中状态）。
- * 无 component 的工作台项（占位）显示 PlaceholderPanel。
+ * Dock panel UI (implemented entirely inside the plugin): a window rendered
+ * by the host beside the chat column. Owns its width (edge drag, persisted),
+ * title bar with close button, and the selected worktable content.
  */
-function WorktableDockContent() {
+function WorktableDockPanel() {
+  const [width, setWidth] = useState<number>(() => {
+    const stored = Number(window.localStorage.getItem(DOCK_WIDTH_KEY));
+    return Number.isFinite(stored) ? Math.min(DOCK_WIDTH_MAX, Math.max(DOCK_WIDTH_MIN, stored)) : 320;
+  });
   const [items, setItems] = useState<WorktableItem[]>(BUILTIN_ITEMS);
   const selected = useSelectedWorktableId();
+  const [resizing, setResizing] = useState(false);
+  const widthRef = useRef(width);
+  widthRef.current = width;
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(DOCK_WIDTH_KEY, String(width));
+    } catch { /* ignore */ }
+  }, [width]);
+
+  // Worktable registry refresh (new plugins appear within 5s)
   useEffect(() => {
     const refresh = () => {
       const registered = (window.robopi as unknown as { getWorktableItems?: () => WorktableItem[] })
@@ -241,13 +260,90 @@ function WorktableDockContent() {
     return () => clearInterval(timer);
   }, []);
 
+  // Edge drag to resize the panel width
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setResizing(true);
+    const startX = e.clientX;
+    const startWidth = widthRef.current;
+    const move = (ev: MouseEvent) => {
+      const delta = ev.clientX - startX;
+      setWidth(Math.min(DOCK_WIDTH_MAX, Math.max(DOCK_WIDTH_MIN, startWidth + delta)));
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      setResizing(false);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
   const item = items.find((i) => i.id === selected) ?? items[0];
-  if (!item) return null;
-  if (item.component) {
-    const Component = item.component;
-    return <div style={{ padding: 12 }}><Component api={pluginApiShim} /></div>;
-  }
-  return <div style={{ padding: 12 }}><PlaceholderPanel item={item} /></div>;
+
+  return (
+    <div
+      style={{
+        width,
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        overflow: "hidden",
+        background: "var(--bg-panel)",
+        borderRight: "1px solid var(--border)",
+        position: "relative",
+      }}
+    >
+      {/* Title bar */}
+      <div
+        style={{
+          display: "flex", alignItems: "center", gap: 6, height: 32,
+          padding: "0 10px", flexShrink: 0, borderBottom: "1px solid var(--border)",
+          fontSize: 12, fontWeight: 700, color: "var(--text)", userSelect: "none",
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+          🧩 工作台
+        </span>
+        <button
+          type="button"
+          onClick={() => (window.robopi as unknown as { setDockOpen?: (v: boolean) => void })?.setDockOpen?.(false)}
+          aria-label="关闭工作台"
+          title="关闭工作台"
+          style={{
+            border: "none", background: "none", cursor: "pointer", color: "var(--text-dim)",
+            fontSize: 14, padding: "2px 6px", borderRadius: 4,
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Worktable content */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+        {!item && <div style={{ padding: 12, fontSize: 12, color: "var(--text-dim)" }}>无工作台</div>}
+        {item && item.component ? (
+          <item.component api={pluginApiShim} />
+        ) : item ? (
+          <div style={{ padding: 12 }}><PlaceholderPanel item={item} /></div>
+        ) : null}
+      </div>
+
+      {/* Edge resize handle (inside the panel, covering the right edge) */}
+      <div
+        onMouseDown={startResize}
+        role="separator"
+        aria-orientation="vertical"
+        title="拖拽调整宽度"
+        style={{
+          position: "absolute", top: 0, bottom: 0, right: 0, width: 6,
+          cursor: "col-resize", background: resizing ? "var(--accent)" : "transparent",
+          transition: "background 0.1s ease",
+        }}
+      />
+    </div>
+  );
 }
 
 // Dock 内容组件无法接收 api 参数，使用全局 shim（宿主注入的 pluginApi 等价物）
